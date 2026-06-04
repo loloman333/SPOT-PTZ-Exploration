@@ -65,7 +65,14 @@ def depth_imgmsg_to_float32(bridge, msg):
         return None
 
 def point_cloud(points: np.ndarray, parent_frame: str, stamp=None) -> PointCloud2:
-        ros_dtype = PointField.FLOAT32
+    """Creates a point cloud message.
+    Args:
+        points: Nx7 array of xyz positions (m) and rgba colors (0..1)
+        parent_frame: frame in which the point cloud is defined
+    Returns:
+        sensor_msgs/PointCloud2 message
+    """
+    ros_dtype = PointField.FLOAT32
     dtype = np.float32
     itemsize = np.dtype(dtype).itemsize
 
@@ -91,7 +98,8 @@ def point_cloud(points: np.ndarray, parent_frame: str, stamp=None) -> PointCloud
     )
 
 def pointcloud2_to_array(msg: PointCloud2) -> np.ndarray:
-        try:
+    """Extract Nx3 XYZ points from a PointCloud2 message."""
+    try:
         points_arr = pc2.read_points_numpy(msg, field_names=("x", "y", "z"), skip_nans=True)
         if points_arr.size == 0:
             return np.array([]).reshape(0, 3)
@@ -125,7 +133,8 @@ def pointcloud2_to_array(msg: PointCloud2) -> np.ndarray:
 
 
 def transform_points(points: np.ndarray, transform) -> np.ndarray:
-        if points.size == 0:
+    """Transform Nx3 points using a geometry_msgs/TransformStamped."""
+    if points.size == 0:
         return points
 
     finite_mask = np.isfinite(points).all(axis=1)
@@ -143,7 +152,8 @@ def transform_points(points: np.ndarray, transform) -> np.ndarray:
 
 
 def array_to_pointcloud2(points: np.ndarray, frame_id: str, timestamp) -> PointCloud2:
-        msg = PointCloud2()
+    """Convert numpy array of xyz points to PointCloud2 message."""
+    msg = PointCloud2()
     msg.header = Header(frame_id=frame_id, stamp=timestamp)
 
     msg.height = 1

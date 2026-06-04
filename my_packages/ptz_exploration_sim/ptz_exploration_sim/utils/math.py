@@ -1,7 +1,8 @@
 import numpy as np
 
 def quaternion_to_matrix(qx, qy, qz, qw, tx, ty, tz):
-        # Normalize quaternion
+    """Creates a 4x4 homogenous matrix from Quat + Translation"""
+    # Normalize quaternion
     norm = np.sqrt(qx**2 + qy**2 + qz**2 + qw**2)
     qx, qy, qz, qw = qx/norm, qy/norm, qz/norm, qw/norm
     
@@ -20,15 +21,16 @@ def quaternion_to_matrix(qx, qy, qz, qw, tx, ty, tz):
     return M
 
 def euler_to_matrix(r, p, y, tx, ty, tz):
+    """Creates a 4x4 homogenous matrix from Euler (XYZ) + Translation"""
     cx, sx = np.cos(r), np.sin(r)
     cy, sy = np.cos(p), np.sin(p)
     cz, sz = np.cos(y), np.sin(y)
     
     # Combined Rotation Matrix Rz * Ry * Rx
     R = np.array([
-    [cy*cz, cz*sx*sy - cx*sz, cx*cz*sy + sx*sz],
-    [cy*sz, cx*cz + sx*sy*sz, -cz*sx + cx*sy*sz],
-    [-sy, cy*sx, cx*cy]
+        [cy*cz, cz*sx*sy - cx*sz, cx*cz*sy + sx*sz],
+        [cy*sz, cx*cz + sx*sy*sz, -cz*sx + cx*sy*sz],
+        [-sy, cy*sx, cx*cy]
     ])
     
     M = np.eye(4)
@@ -39,6 +41,7 @@ def euler_to_matrix(r, p, y, tx, ty, tz):
     return M
 
 def matrix_to_transform(M):
+    """Extracts X Y Z R P Y from a 4x4 matrix"""
     x, y, z = M[0][3], M[1][3], M[2][3]
     
     # Extract Pitch
@@ -47,14 +50,14 @@ def matrix_to_transform(M):
     singular = sy < 1e-6
 
     if not singular:
-    r = np.arctan2(M[2][1], M[2][2])
-    p = np.arctan2(-M[2][0], sy)
-    yaw = np.arctan2(M[1][0], M[0][0])
+        r = np.arctan2(M[2][1], M[2][2])
+        p = np.arctan2(-M[2][0], sy)
+        yaw = np.arctan2(M[1][0], M[0][0])
     else:
-    # Gimbal Lock case (Pitch +/- 90)
-    r = np.arctan2(-M[1][2], M[1][1])
-    p = np.arctan2(-M[2][0], sy)
-    yaw = 0.0
+        # Gimbal Lock case (Pitch +/- 90)
+        r = np.arctan2(-M[1][2], M[1][1])
+        p = np.arctan2(-M[2][0], sy)
+        yaw = 0.0
 
     return x, y, z, r, p, yaw
 

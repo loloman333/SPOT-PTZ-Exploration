@@ -32,9 +32,7 @@ def _node_key(node_type: str, node_id: int) -> NodeKey:
     return (str(node_type), int(node_id))
 
 
-def _node_from_entry(
-    entry: Mapping[str, object], expected_type: str
-) -> Tuple[NodeKey, NodePosition]:
+def _node_from_entry(entry: Mapping[str, object], expected_type: str) -> Tuple[NodeKey, NodePosition]:
     node_type = str(entry.get("type", expected_type))
     node_id = int(entry["id"])
     x = float(entry["x"])
@@ -90,9 +88,7 @@ def _collect_edges(snapshot: Mapping[str, object]) -> List[Edge]:
     return edges
 
 
-def _extract_positions(
-    nodes: Mapping[NodeKey, NodePosition], node_type: str
-) -> List[Tuple[int, float, float]]:
+def _extract_positions(nodes: Mapping[NodeKey, NodePosition], node_type: str) -> List[Tuple[int, float, float]]:
     items: List[Tuple[int, float, float]] = []
     for (current_type, node_id), (x, y) in nodes.items():
         if current_type == node_type:
@@ -174,9 +170,7 @@ def plot_snapshot(snapshot_path: Path, output_path: Path, dpi: int = DEFAULT_DPI
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Plot a 2D SLAM factor graph from optimizer JSON output."
-    )
+    parser = argparse.ArgumentParser(description="Plot a 2D SLAM factor graph from optimizer JSON output.")
     parser.add_argument(
         "snapshot",
         type=Path,
@@ -200,9 +194,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     snapshot_path = args.snapshot.expanduser().resolve()
-    output_path = (
-        args.output.expanduser().resolve() if args.output else snapshot_path.with_suffix(".png")
-    )
+    output_path = (args.output.expanduser().resolve() if args.output else snapshot_path.with_suffix(".png"))
     plot_snapshot(snapshot_path, output_path, dpi=args.dpi)
     print(f"Saved factor graph plot to {output_path}")
 

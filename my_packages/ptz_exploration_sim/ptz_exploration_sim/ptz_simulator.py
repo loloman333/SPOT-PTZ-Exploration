@@ -123,6 +123,7 @@ class PtzSimulator(Node):
         self.get_logger().info("PTZ Manager Initialized.")
         
     def publish_state(self):
+        """Publish current PTZ state."""
         now_s = self.get_clock().now().nanoseconds * 1e-9
 
         pan_vel = 0.0
@@ -130,29 +131,29 @@ class PtzSimulator(Node):
         zoom_vel = 0.0
 
         if (
-        self.last_state_time_s is not None
-        and self.last_state_pan is not None
-        and self.last_state_tilt is not None
-        and self.last_state_zoom is not None
+            self.last_state_time_s is not None
+            and self.last_state_pan is not None
+            and self.last_state_tilt is not None
+            and self.last_state_zoom is not None
         ):
-        dt = now_s - self.last_state_time_s
-        if dt > 1e-6:
-        pan_vel = self.shortest_angular_distance(self.last_state_pan, self.current_pan) / dt
-        tilt_vel = (self.current_tilt - self.last_state_tilt) / dt
-        zoom_vel = (self.current_zoom_factor - self.last_state_zoom) / dt
+            dt = now_s - self.last_state_time_s
+            if dt > 1e-6:
+                pan_vel = self.shortest_angular_distance(self.last_state_pan, self.current_pan) / dt
+                tilt_vel = (self.current_tilt - self.last_state_tilt) / dt
+                zoom_vel = (self.current_zoom_factor - self.last_state_zoom) / dt
 
         state_msg = JointState()
         state_msg.header.stamp = self.get_clock().now().to_msg()
         state_msg.name = ['ptz_pan', 'ptz_tilt', 'ptz_zoom']
         state_msg.position = [
-        self.wrap_angle(self.current_pan),
-        float(self.current_tilt),
-        float(self.current_zoom_factor),
+            self.wrap_angle(self.current_pan),
+            float(self.current_tilt),
+            float(self.current_zoom_factor),
         ]
         state_msg.velocity = [
-        float(pan_vel),
-        float(tilt_vel),
-        float(zoom_vel),
+            float(pan_vel),
+            float(tilt_vel),
+            float(zoom_vel),
         ]
         self.state_pub.publish(state_msg)
 
@@ -160,9 +161,9 @@ class PtzSimulator(Node):
         tilt_err = abs(self.current_tilt - self.target_tilt)
         zoom_err = abs(self.current_zoom_factor - self.target_zoom_factor)
         is_settled = (
-        pan_err <= self.settle_tolerance_rad
-        and tilt_err <= self.settle_tolerance_rad
-        and zoom_err <= self.settle_tolerance_zoom
+            pan_err <= self.settle_tolerance_rad
+            and tilt_err <= self.settle_tolerance_rad
+            and zoom_err <= self.settle_tolerance_zoom
         )
         self.settled_pub.publish(Bool(data=is_settled))
 
@@ -204,44 +205,49 @@ class PtzSimulator(Node):
         return msg.position[idx]
 
     def execute_pan_tilt(self):
+        """Periodically publish current pan/tilt targets."""
         self.pan_pub.publish(Float64(data=self.target_pan))
         self.tilt_pub.publish(Float64(data=self.target_tilt))
         
     def execute_zoom(self):
+        """Periodically update zoom state (software zoom pipeline)."""
         if self.current_zoom_factor == self.target_zoom_factor:
-        return
+            return
 
         dz = self.target_zoom_factor - self.current_zoom_factor
         max_step = self.zoom_slew_rate * self.control_period_s
         if max_step <= 0.0 or abs(dz) <= max_step:
-        self.current_zoom_factor = self.target_zoom_factor
+            self.current_zoom_factor = self.target_zoom_factor
         else:
-        self.current_zoom_factor += math.copysign(max_step, dz)
+            self.current_zoom_factor += math.copysign(max_step, dz)
 
     def publish_camera_info(self):
+        """Publish latest zoom-adjusted camera info on its own cadence."""
         if self.latest_camera_info_msg is None:
-        return
+            return
         self.ptz_camera_info_pub.publish(self.latest_camera_info_msg)
 
     def raw_camera_info_callback(self, msg):
+        """Capture the first raw camera info and then unsubscribe."""
         if self.raw_camera_info is not None:
-        return
+            return
 
         self.raw_camera_info = msg
         self.get_logger().info(f"Received raw PTZ camera info from {self.ptz_raw_camera_info_topic}")
 
         if self.raw_camera_info_sub is not None:
-        self.destroy_subscription(self.raw_camera_info_sub)
-        self.raw_camera_info_sub = None
+            self.destroy_subscription(self.raw_camera_info_sub)
+            self.raw_camera_info_sub = None
 
     def raw_image_callback(self, msg):
+        """Apply software zoom and publish legacy PTZ image/camera_info outputs."""
         if msg.encoding not in self.SUPPORTED_IMAGE_ENCODINGS:
-        self.get_logger().info(f"Unsupported PTZ raw image encoding: {msg.encoding}")
-        return
+            self.get_logger().info(f"Unsupported PTZ raw image encoding: {msg.encoding}")
+            return
 
         cv_image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
         if cv_image is None:
-        return
+            return
 
         raw_h, raw_w = cv_image.shape[:2]
         zoom = self.clamp_zoom(self.current_zoom_factor)
@@ -249,9 +255,9 @@ class PtzSimulator(Node):
 
         cropped = cv_image[y0:y0 + crop_h, x0:x0 + crop_w]
         resized = cv2.resize(
-        cropped,
-        (self.ptz_output_width, self.ptz_output_height),
-        interpolation=cv2.INTER_LINEAR,
+            cropped,
+            (self.ptz_output_width, self.ptz_output_height),
+            interpolation=cv2.INTER_LINEAR,
         )
 
         out_img = self.bridge.cv2_to_imgmsg(resized, encoding=msg.encoding)
@@ -259,10 +265,11 @@ class PtzSimulator(Node):
         self.ptz_image_pub.publish(out_img)
 
         if self.raw_camera_info is not None:
-        out_info = self._build_zoomed_camera_info(self.raw_camera_info, msg.header, x0, y0, crop_w, crop_h)
-        self.latest_camera_info_msg = out_info
+            out_info = self._build_zoomed_camera_info(self.raw_camera_info, msg.header, x0, y0, crop_w, crop_h)
+            self.latest_camera_info_msg = out_info
 
     def _build_zoomed_camera_info(self, raw_info, header, crop_x, crop_y, crop_w, crop_h):
+        """Build camera_info for cropped+resized image."""
         out_info = copy.deepcopy(raw_info)
         out_info.header = header
         out_info.width = self.ptz_output_width
@@ -300,13 +307,14 @@ class PtzSimulator(Node):
         return out_info
 
     def joint_state_callback(self, msg):
+        """Parse incoming joint states to find our specific joints."""
         pan = self.get_joint_position(msg, self.pan_joint)
         if pan is not None:
-        self.current_pan = pan
+            self.current_pan = pan
 
         tilt = self.get_joint_position(msg, self.tilt_joint)
         if tilt is not None:
-        self.current_tilt = tilt
+            self.current_tilt = tilt
 
     def set_ptz_callback(self, msg):
         self.get_logger().info(f"PTZ CMD: Pan={msg.x:.2f}, Tilt={msg.y:.2f}, Zoom={msg.z:.2f}x")

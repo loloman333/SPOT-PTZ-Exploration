@@ -3,67 +3,58 @@ import os
 import rclpy
 from rclpy.node import Node
 from sensor_msgs.msg import Image
-from vision_msgs.msg import (
-    Detection2D,
-    Detection2DArray,
-    ObjectHypothesisWithPose,
-    BoundingBox2D,
-    Pose2D,
-)
+from vision_msgs.msg import Detection2D, Detection2DArray, ObjectHypothesisWithPose, BoundingBox2D, Pose2D
 from ultralytics import YOLO
 from ultralytics.utils.downloads import attempt_download_asset
 from ament_index_python.packages import get_package_share_directory
 from ptz_exploration_core.utils.ros import evaluate_pattern, imgmsg_to_bgr
 from cv_bridge import CvBridge
 
-
 class Detector(Node):
     def __init__(self):
-        super().__init__("yolo_node")
-
+        super().__init__('yolo_node')
+        
         self.declare_parameters(
-            namespace="",
+            namespace='',
             parameters=[
-                ("pkg_name", "simulation"),
-                ("robot_name", "spot"),
-                ("yolo_model", "yolo26n.pt"),
-                ("yolo_device", "cpu"),
-                ("confidence_threshold", 0.2),
-                ("target_classes", ["person"]),
-                ("detection_frequency", 1.0),
-                ("cameras", [""]),
-                ("image_pattern", ""),
-                ("output_pattern", ""),
-                ("publish_annotated_image", False),
-            ],
+                ('pkg_name', 'simulation'),
+                ('robot_name', 'spot'),
+                ('yolo_model', 'yolo26n.pt'),
+                ('yolo_device', 'cpu'),
+                ('confidence_threshold', 0.2),
+                ('target_classes', ['person']),
+                ('detection_frequency', 1.0),
+                ('cameras', ['']),
+                ('image_pattern', ''),
+                ('output_pattern', ''),
+                ('publish_annotated_image', False),
+            ]
         )
-
-        self.pkg_name = self.get_parameter("pkg_name").value
-        self.robot_name = self.get_parameter("robot_name").value
-        self.yolo_model_name = self.get_parameter("yolo_model").value
-        self.yolo_device = str(self.get_parameter("yolo_device").value).strip()
-        self.confidence_threshold = self.get_parameter("confidence_threshold").value
-        self.target_classes = self.get_parameter("target_classes").value
-        self.detection_frequency = float(self.get_parameter("detection_frequency").value)
-        self.cameras = self.get_parameter("cameras").value
-        self.image_pattern = self.get_parameter("image_pattern").value
-        self.output_pattern = self.get_parameter("output_pattern").value
-        self.publish_annotated_image = bool(self.get_parameter("publish_annotated_image").value)
-
+        
+        self.pkg_name = self.get_parameter('pkg_name').value
+        self.robot_name = self.get_parameter('robot_name').value
+        self.yolo_model_name = self.get_parameter('yolo_model').value
+        self.yolo_device = str(self.get_parameter('yolo_device').value).strip()
+        self.confidence_threshold = self.get_parameter('confidence_threshold').value
+        self.target_classes = self.get_parameter('target_classes').value
+        self.detection_frequency = float(self.get_parameter('detection_frequency').value)
+        self.cameras = self.get_parameter('cameras').value
+        self.image_pattern = self.get_parameter('image_pattern').value
+        self.output_pattern = self.get_parameter('output_pattern').value
+        self.publish_annotated_image = bool(self.get_parameter('publish_annotated_image').value)
+        
         # Convert detection frequency (Hz) to nanoseconds
-        self.min_detection_interval_ns = (
-            None if self.detection_frequency == 0 else int(1e9 / self.detection_frequency)
-        )
-
+        self.min_detection_interval_ns = None if self.detection_frequency == 0 else int(1e9 / self.detection_frequency)
+        
         # Initialize YOLO
-        model_dir = os.path.join(get_package_share_directory(self.pkg_name), "models")
+        model_dir = os.path.join(get_package_share_directory(self.pkg_name), 'models')
         yolo_model_path = os.path.join(model_dir, self.yolo_model_name)
         if not os.path.exists(yolo_model_path):
             os.makedirs(model_dir, exist_ok=True)
             attempt_download_asset(yolo_model_path)
         self.model = YOLO(yolo_model_path)
         self.get_logger().info(f"YOLO inference device: {self.yolo_device or 'auto'}")
-
+        
         # Pre-compute class IDs
         self.target_class_ids = []
         if self.target_classes:
@@ -76,15 +67,19 @@ class Detector(Node):
 
         # CV Bridge for image conversion
         self.bridge = CvBridge()
-
+        
         # Subscribers and Publishers dictionaries
         self.image_subs = {}
         self.results_pubs = {}
         self.last_processed_ns = {}
-
+        
         # Detection Publisher
-        self.detection_pub = self.create_publisher(Detection2DArray, "/detections", 10)
-
+        self.detection_pub = self.create_publisher(
+            Detection2DArray,
+            '/detections',
+            10
+        )
+        
         # Initialize for each camera
         for camera in self.cameras:
             # Image Subscriber
@@ -94,25 +89,25 @@ class Detector(Node):
                 lambda msg, cam=camera: self.image_callback(msg, cam),
                 10,
             )
-
+            
             # Debug Publisher
             if self.publish_annotated_image:
                 self.results_pubs[camera] = self.create_publisher(
                     Image,
                     evaluate_pattern(self.output_pattern, robot=self.robot_name, camera=camera),
-                    10,
+                    10
                 )
-
+            
             self.get_logger().info(f"Initialized subscribers/publishers for {camera}")
 
     def image_callback(self, img_msg, camera):
         current_ns = img_msg.header.stamp.sec * 1_000_000_000 + img_msg.header.stamp.nanosec
-        if self.min_detection_interval_ns is not None:
+        if self.min_detection_interval_ns is not None:    
             last_ns = self.last_processed_ns.get(camera)
             if last_ns is not None and (current_ns - last_ns) < self.min_detection_interval_ns:
                 return
             self.last_processed_ns[camera] = current_ns
-
+        
         # Convert image message to numpy
         try:
             cv_image = imgmsg_to_bgr(self.bridge, img_msg)
@@ -129,11 +124,11 @@ class Detector(Node):
             device=self.yolo_device if self.yolo_device else None,
         )
         detection_array = self._build_detection_array(results, img_msg.header)
-
+        
         # Publish detections
         if detection_array.detections:
             self.detection_pub.publish(detection_array)
-
+                
         # Publish annotated image
         if self.publish_annotated_image:
             self._publish_annotated_image(camera, results, img_msg.header)
@@ -178,8 +173,7 @@ class Detector(Node):
             self.results_pubs[camera].publish(out_msg)
         except Exception as e:
             self.get_logger().error(f"Annotated image publish error for {camera}: {e}")
-
-
+            
 def main(args=None):
     rclpy.init(args=args)
     node = Detector()
@@ -187,6 +181,5 @@ def main(args=None):
     node.destroy_node()
     rclpy.shutdown()
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

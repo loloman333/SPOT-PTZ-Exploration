@@ -270,26 +270,27 @@ class Collector(Node):
         self.get_logger().info(f"Published ground truth markers for {len(self.world_objects)} objects in world '{self.sim_world_name}'")
 
     def landmarks_callback(self, msg):
+        """Track landmarks by ID, keeping only the latest state from callbacks."""
         for incoming in msg.landmarks:
-        self.landmarks_by_id[int(incoming.id)] = self._copy_landmark(incoming)
+            self.landmarks_by_id[int(incoming.id)] = self._copy_landmark(incoming)
 
         # If target_objects is configured, start a one-minute shutdown timer
         # once the required number of landmarks have been observed.
         try:
-        found_count = len(self.landmarks_by_id)
+            found_count = len(self.landmarks_by_id)
         except Exception:
-        found_count = 0
+            found_count = 0
 
         if self.target_objects and found_count >= self.target_objects:
-        if self.target_objects_shutdown_timer is None:
-        self.get_logger().info(
-            f"Found {found_count}/{self.target_objects} target objects; scheduling shutdown in 60s"
-        )
-        # Schedule shutdown after 60 seconds
-        self.target_objects_shutdown_timer = self.create_timer(
-            60.0,
-            self.target_objects_shutdown_callback,
-        )
+            if self.target_objects_shutdown_timer is None:
+                self.get_logger().info(
+                    f"Found {found_count}/{self.target_objects} target objects; scheduling shutdown in 60s"
+                )
+                # Schedule shutdown after 60 seconds
+                self.target_objects_shutdown_timer = self.create_timer(
+                    60.0,
+                    self.target_objects_shutdown_callback,
+                )
                 
     @staticmethod
     def _copy_landmark(source_landmark: Landmark) -> Landmark:
@@ -304,6 +305,7 @@ class Collector(Node):
         return copied_landmark
 
     def projected_map_callback(self, msg: OccupancyGrid):
+        """Track projected map known size from the latest occupancy grid."""
         known_cells = sum(1 for v in msg.data if v != -1)
         resolution = float(msg.info.resolution)
 
@@ -311,13 +313,15 @@ class Collector(Node):
         self.projected_map_known_area_m2 = known_cells * resolution * resolution
 
     def battery_callback(self, msg: BatteryStateArray):
+        """Track the current battery percentage from the latest battery state array."""
         if not msg.battery_states:
-        self.battery_percentage = math.nan
-        return
+            self.battery_percentage = math.nan
+            return
 
         self.battery_percentage = float(msg.battery_states[0].charge_percentage)
 
     def exploration_done_callback(self, msg: Empty):
+        """Called when exploration is complete. Flush data and shutdown."""
         self.get_logger().info("Received exploration_done signal. Shutting down collector...")
         self.flush_to_csv()
         rclpy.shutdown()
@@ -339,30 +343,34 @@ class Collector(Node):
         rclpy.shutdown()
 
     def get_elapsed_time_sec(self):
+        """Return elapsed time in seconds since node startup."""
         return (self.get_clock().now() - self.start_time).nanoseconds / 1e9
 
     @staticmethod
     def quaternion_to_yaw(x: float, y: float, z: float, w: float) -> float:
-                siny_cosp = 2.0 * (w * z + x * y)
+        """Convert quaternion to yaw (rotation around Z)."""
+        siny_cosp = 2.0 * (w * z + x * y)
         cosy_cosp = 1.0 - 2.0 * (y * y + z * z)
         return math.atan2(siny_cosp, cosy_cosp)
 
     @staticmethod
     def wrap_to_pi(angle_rad: float) -> float:
-                return math.atan2(math.sin(angle_rad), math.cos(angle_rad))
+        """Wrap angle to [-pi, pi]."""
+        return math.atan2(math.sin(angle_rad), math.cos(angle_rad))
 
     def update_motion_from_tf(self):
+        """Integrate XY translation and yaw rotation using TF transforms."""
         try:
-        transform = self.tf_buffer.lookup_transform(
-        self.reference_frame_id,
-        self.base_frame_id,
-        rclpy.time.Time(),
-        )
+            transform = self.tf_buffer.lookup_transform(
+                self.reference_frame_id,
+                self.base_frame_id,
+                rclpy.time.Time(),
+            )
         except TransformException as ex:
-        self.get_logger().debug(
-        f"TF lookup failed ({self.reference_frame_id} -> {self.base_frame_id}): {ex}"
-        )
-        return
+            self.get_logger().debug(
+                f"TF lookup failed ({self.reference_frame_id} -> {self.base_frame_id}): {ex}"
+            )
+            return
 
         x = transform.transform.translation.x
         y = transform.transform.translation.y
@@ -371,13 +379,13 @@ class Collector(Node):
         current_yaw = self.quaternion_to_yaw(q.x, q.y, q.z, q.w)
 
         if self.last_xy is not None:
-        dx = current_xy[0] - self.last_xy[0]
-        dy = current_xy[1] - self.last_xy[1]
-        self.distance_traveled_m += math.hypot(dx, dy)
+            dx = current_xy[0] - self.last_xy[0]
+            dy = current_xy[1] - self.last_xy[1]
+            self.distance_traveled_m += math.hypot(dx, dy)
 
         if self.last_yaw is not None:
-        dyaw = self.wrap_to_pi(current_yaw - self.last_yaw)
-        self.rotation_traveled_rad += abs(dyaw)
+            dyaw = self.wrap_to_pi(current_yaw - self.last_yaw)
+            self.rotation_traveled_rad += abs(dyaw)
 
         self.last_xy = current_xy
         self.last_yaw = current_yaw
@@ -443,43 +451,45 @@ class Collector(Node):
         return total_error / valid_landmark_count
 
     def collect_snapshot(self):
+        """Update TF-derived motion and append one row with latest callback state."""
         self.update_motion_from_tf()
         self.geometric_error = self.get_geometric_error()
         self.mean_covariance_trace = self.get_mean_covariance_trace()
 
         self.rows.append({
-        'elapsed_s': self.get_elapsed_time_sec(),
-        'distance_m_cum': self.distance_traveled_m,
-        'rotation_rad_cum': self.rotation_traveled_rad,
-        'landmarks_count': self.get_landmarks_count(),
-        'mean_confidence': self.get_mean_confidence(),
-        'mean_covariance_trace': self.mean_covariance_trace,
-        'geometric_error': self.geometric_error,
-        'battery_percentage': self.battery_percentage,
-        'projected_map_known_area_m2': self.projected_map_known_area_m2,
+            'elapsed_s': self.get_elapsed_time_sec(),
+            'distance_m_cum': self.distance_traveled_m,
+            'rotation_rad_cum': self.rotation_traveled_rad,
+            'landmarks_count': self.get_landmarks_count(),
+            'mean_confidence': self.get_mean_confidence(),
+            'mean_covariance_trace': self.mean_covariance_trace,
+            'geometric_error': self.geometric_error,
+            'battery_percentage': self.battery_percentage,
+            'projected_map_known_area_m2': self.projected_map_known_area_m2,
         })
 
     def flush_to_csv(self):
+        """Write all collected rows to CSV once (MVP behavior)."""
         self.output_dir.mkdir(parents=True, exist_ok=True)
         fieldnames = [
-        'elapsed_s',
-        'distance_m_cum',
-        'rotation_rad_cum',
-        'landmarks_count',
-        'mean_confidence',
-        'mean_covariance_trace',
-        'geometric_error',
-        'battery_percentage',
-        'projected_map_known_area_m2',
+            'elapsed_s',
+            'distance_m_cum',
+            'rotation_rad_cum',
+            'landmarks_count',
+            'mean_confidence',
+            'mean_covariance_trace',
+            'geometric_error',
+            'battery_percentage',
+            'projected_map_known_area_m2',
         ]
 
         with self.output_file_path.open('w', newline='') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(self.rows)
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(self.rows)
 
         self.get_logger().info(
-        f"Saved {len(self.rows)} rows to {self.output_file_path}"
+            f"Saved {len(self.rows)} rows to {self.output_file_path}"
         )
 
 

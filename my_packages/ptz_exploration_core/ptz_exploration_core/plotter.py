@@ -1,4 +1,11 @@
 #!/usr/bin/env python3
+"""
+Offline plotter for collector CSV data.
+
+Supports single CSV and batch folder modes with unified axes. Generates individual
+time-series plots and a summary figure with alternating y-axes. In batch mode, also
+generates a final-value bar comparison chart across all runs.
+"""
 
 import argparse
 import csv
@@ -66,7 +73,8 @@ OPTIONAL_CSV_COLUMNS = [
 
 
 def load_plot_groups(config_path: Path) -> Dict[str, object]:
-        with config_path.open('r', newline='') as config_file:
+    """Load grouped plot definitions and settings from YAML."""
+    with config_path.open('r', newline='') as config_file:
         config = yaml.safe_load(config_file) or {}
 
     plot_groups: Dict[str, object] = {}
@@ -101,7 +109,8 @@ def load_plot_groups(config_path: Path) -> Dict[str, object]:
 
 
 def _resolve_metric_spec(metric_name: str) -> Optional[Tuple[str, str, str]]:
-        return METRIC_SPECS.get(metric_name)
+    """Map a config metric name to the CSV field, display label, and color."""
+    return METRIC_SPECS.get(metric_name)
 
 
 def _group_has_visible_data(rows: List[Dict[str, float]], metric_names: List[str]) -> bool:
@@ -116,7 +125,8 @@ def _group_has_visible_data(rows: List[Dict[str, float]], metric_names: List[str
 
 
 def _group_slug(metric_names: List[str]) -> str:
-        cleaned = []
+    """Create a stable filename-safe slug from a metric group."""
+    cleaned = []
     for metric_name in metric_names:
         safe = ''.join(ch if ch.isalnum() or ch == '_' else '_' for ch in str(metric_name).strip().lower())
         if safe:
@@ -125,40 +135,48 @@ def _group_slug(metric_names: List[str]) -> str:
 
 
 def _metric_specs_for_run(rows: List[Dict[str, float]], run_stem: Optional[str] = None):
+    """Return metric specs to plot for a run.
+
+    Include a metric only if there is at least one finite value in the run
+    and the *last* row contains a finite value for that metric. This avoids
+    deciding based on the CSV filename.
+    """
     specs = []
     if not rows:
-    return specs
+        return specs
 
     last_row = rows[-1]
     for metric_name in METRIC_SPECS:
-    spec = _resolve_metric_spec(metric_name)
-    if spec is None:
-        continue
-    metric_key, ylabel, color = spec
+        spec = _resolve_metric_spec(metric_name)
+        if spec is None:
+            continue
+        metric_key, ylabel, color = spec
 
-    # Skip metrics with no finite values at all in the run.
-    if not any(math.isfinite(float(r.get(metric_key, math.nan))) for r in rows):
-        continue
+        # Skip metrics with no finite values at all in the run.
+        if not any(math.isfinite(float(r.get(metric_key, math.nan))) for r in rows):
+            continue
 
-    # Only include the metric if the last row contains a finite value.
-    last_val = float(last_row.get(metric_key, math.nan))
-    if not math.isfinite(last_val):
-        continue
+        # Only include the metric if the last row contains a finite value.
+        last_val = float(last_row.get(metric_key, math.nan))
+        if not math.isfinite(last_val):
+            continue
 
-    specs.append((metric_key, ylabel, color))
+        specs.append((metric_key, ylabel, color))
 
     return specs
 
 
 def _to_float(value: str, default: float = 0.0) -> float:
-        try:
+    """Convert value to float with fallback to default on error."""
+    try:
         return float(value)
     except (TypeError, ValueError):
         return default
 
 
 def load_collector_csv(csv_path: Path) -> List[Dict[str, float]]:
-        rows: List[Dict[str, float]] = []
+    """Load and validate collector CSV, converting all fields to float."""
+    rows: List[Dict[str, float]] = []
     with csv_path.open('r', newline='') as f:
         reader = csv.DictReader(f)
 
@@ -191,7 +209,8 @@ def load_collector_csv(csv_path: Path) -> List[Dict[str, float]]:
 
 
 def _add_battery_discharge(rows: List[Dict[str, float]]) -> None:
-        baseline = next((row['battery_percentage'] for row in rows if math.isfinite(row.get('battery_percentage', math.nan))), math.nan)
+    """Add battery discharge since start as a derived metric in percentage points."""
+    baseline = next((row['battery_percentage'] for row in rows if math.isfinite(row.get('battery_percentage', math.nan))), math.nan)
     for row in rows:
         battery_percentage = row.get('battery_percentage', math.nan)
         if math.isfinite(baseline) and math.isfinite(battery_percentage):
@@ -201,7 +220,8 @@ def _add_battery_discharge(rows: List[Dict[str, float]]) -> None:
 
 
 def normalize_elapsed_time(rows: List[Dict[str, float]]) -> List[Dict[str, float]]:
-        sorted_rows = sorted(rows, key=lambda row: row['elapsed_s'])
+    """Sort rows by elapsed time and rebase so each run starts at t=0."""
+    sorted_rows = sorted(rows, key=lambda row: row['elapsed_s'])
     if not sorted_rows:
         return sorted_rows
 
@@ -223,7 +243,8 @@ def save_single_plot(
     xlim: Optional[Tuple[float, float]] = None,
     color: Optional[str] = None,
 ) -> None:
-        fig, ax = plt.subplots(figsize=(SINGLE_PLOT_WIDTH, SINGLE_PLOT_HEIGHT))
+    """Create and save a single line plot."""
+    fig, ax = plt.subplots(figsize=(SINGLE_PLOT_WIDTH, SINGLE_PLOT_HEIGHT))
     ax.plot(t, y, linewidth=2, color=color)
     ax.set_title(title, fontsize=FONT_SIZE_LABEL)
     ax.set_xlabel('time [s]', fontsize=FONT_SIZE_LABEL)
@@ -240,7 +261,8 @@ def save_single_plot(
 
 
 def main() -> None:
-        parser = argparse.ArgumentParser(
+    """Entry point for plotter CLI."""
+    parser = argparse.ArgumentParser(
         description='Create time-series plots from collector CSV output. '
         'Pass a single CSV file or a folder to batch-process multiple CSVs with unified axes.'
     )
@@ -276,7 +298,8 @@ def main() -> None:
 
 
 def _process_single_csv(csv_path: Path, out_dir_arg: Optional[Path] = None, plot_groups: Optional[Dict[str, object]] = None) -> None:
-        if not csv_path.exists():
+    """Process a single CSV file and generate plots."""
+    if not csv_path.exists():
         raise FileNotFoundError(f'CSV file not found: {csv_path}')
 
     out_dir = (
@@ -300,7 +323,8 @@ def _process_single_csv(csv_path: Path, out_dir_arg: Optional[Path] = None, plot
 
 
 def _compute_axis_limits(all_data: Dict[str, Dict], metric_keys: List[str]) -> Dict[str, Tuple[float, float]]:
-        axis_limits: Dict[str, Tuple[float, float]] = {}
+    """Compute global min/max axis limits with padding for each metric."""
+    axis_limits: Dict[str, Tuple[float, float]] = {}
 
     for metric in metric_keys:
         all_values = []
@@ -317,7 +341,8 @@ def _compute_axis_limits(all_data: Dict[str, Dict], metric_keys: List[str]) -> D
 
 
 def _collect_metric_fields(plot_groups: List[List[str]]) -> List[str]:
-        metric_fields: List[str] = []
+    """Collect unique CSV fields referenced by a list of grouped metric names."""
+    metric_fields: List[str] = []
     seen_fields = set()
 
     for group in plot_groups:
@@ -334,7 +359,8 @@ def _collect_metric_fields(plot_groups: List[List[str]]) -> List[str]:
 
 
 def _metric_series(rows: List[Dict[str, float]], metric_key: str) -> List[float]:
-        zero_is_missing = metric_key in {'mean_covariance_trace', 'mean_confidence'}
+    """Return a metric series while treating zero as missing for selected metrics."""
+    zero_is_missing = metric_key in {'mean_covariance_trace', 'mean_confidence'}
     series: List[float] = []
 
     for row in rows:
@@ -348,7 +374,8 @@ def _metric_series(rows: List[Dict[str, float]], metric_key: str) -> List[float]
 
 
 def _log_axis_limits(values: List[float]) -> Optional[Tuple[float, float]]:
-        positive_values = [value for value in values if math.isfinite(value) and value > 0.0]
+    """Compute tidy positive log-axis limits from finite metric values."""
+    positive_values = [value for value in values if math.isfinite(value) and value > 0.0]
     if not positive_values:
         return None
 
@@ -362,7 +389,8 @@ def _log_axis_limits(values: List[float]) -> Optional[Tuple[float, float]]:
 
 
 def _apply_log_yaxis(ax, values: List[float], axis_limit: Optional[Tuple[float, float]] = None) -> None:
-        limits = axis_limit
+    """Apply log scaling to a y-axis while keeping tick labels as plain numbers."""
+    limits = axis_limit
     if not limits or limits[0] <= 0.0 or limits[1] <= 0.0:
         limits = _log_axis_limits(values)
 
@@ -377,7 +405,8 @@ def _apply_log_yaxis(ax, values: List[float], axis_limit: Optional[Tuple[float, 
 
 
 def _apply_percentage_yaxis(ax, values: List[float], axis_limit: Optional[Tuple[float, float]] = None) -> None:
-        finite_values = [value for value in values if math.isfinite(value)]
+    """Apply percentage formatting to a y-axis while keeping values in fractional units."""
+    finite_values = [value for value in values if math.isfinite(value)]
     if not finite_values:
         return
 
@@ -392,7 +421,8 @@ def _apply_percentage_yaxis(ax, values: List[float], axis_limit: Optional[Tuple[
 
 
 def _resolve_visible_metrics(groups: List[List[str]], rows: List[Dict[str, float]]) -> List[Tuple[str, str, str]]:
-        visible_metrics: List[Tuple[str, str, str]] = []
+    """Resolve plot metrics that have at least one finite value in the provided rows."""
+    visible_metrics: List[Tuple[str, str, str]] = []
 
     for group in groups:
         if not isinstance(group, list):
@@ -410,7 +440,8 @@ def _resolve_visible_metrics(groups: List[List[str]], rows: List[Dict[str, float
 
 
 def _resolve_comparison_visible_metrics(all_data: Dict[str, Dict], groups: List[List[str]]) -> List[Tuple[str, str, str]]:
-        visible_metrics: List[Tuple[str, str, str]] = []
+    """Resolve comparison metrics that have at least one finite value across all runs."""
+    visible_metrics: List[Tuple[str, str, str]] = []
 
     for group in groups:
         if not isinstance(group, list):
@@ -441,7 +472,8 @@ def _render_grouped_timeseries_figure(
     xlim: Optional[Tuple[float, float]] = None,
     run_stem: Optional[str] = None,
 ) -> None:
-        if not groups:
+    """Render a grouped time-series figure with vertically stacked metric panels."""
+    if not groups:
         return
 
     visible_metrics = _resolve_visible_metrics(groups, rows)
@@ -487,7 +519,8 @@ def _render_overlaid_timeseries_figure(
     axis_limits: Optional[Dict[str, Tuple[float, float]]] = None,
     xlim: Optional[Tuple[float, float]] = None,
 ) -> None:
-        if not groups:
+    """Render grouped time-series figures with all runs overlaid per metric."""
+    if not groups:
         return
 
     visible_metrics = _resolve_comparison_visible_metrics(all_data, groups)
@@ -610,7 +643,8 @@ def _render_grouped_comparison_figure(
     output_path: Path,
     title: str,
 ) -> None:
-        if not groups:
+    """Render grouped bar charts for final values across multiple runs."""
+    if not groups:
         return
 
     visible_metrics: List[Tuple[str, str, str, List[Tuple[str, float]]]] = []
@@ -836,7 +870,8 @@ def _generate_comparison_figure(
 
 
 def _process_folder(folder_path: Path, out_dir_arg: Optional[Path] = None, plot_groups: Optional[Dict[str, object]] = None) -> None:
-        subfolders = [d for d in folder_path.iterdir() if d.is_dir()]
+    """Process all CSV files in a folder with unified y-axis ranges."""
+    subfolders = [d for d in folder_path.iterdir() if d.is_dir()]
     
     csv_files_info = []
     if subfolders:

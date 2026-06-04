@@ -3,13 +3,18 @@ from geometry_msgs.msg import Point
 
 
 def quaternion_to_yaw(q):
-    return float(np.arctan2(2.0 * (q.w * q.z + q.x * q.y), 1.0 - 2.0 * (q.y * q.y + q.z * q.z)))
+    return float(np.arctan2(
+        2.0 * (q.w * q.z + q.x * q.y),
+        1.0 - 2.0 * (q.y * q.y + q.z * q.z)
+    ))
 
 
 def grid_indices_to_world_xy(indices, map_info):
     indices_array = np.asarray(indices)
     if indices_array.shape[-1] != 2:
-        raise ValueError(f"Expected grid indices with shape (..., 2), got {indices_array.shape}")
+        raise ValueError(
+            f"Expected grid indices with shape (..., 2), got {indices_array.shape}"
+        )
 
     row = indices_array[..., 0]
     col = indices_array[..., 1]

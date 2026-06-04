@@ -255,28 +255,29 @@ class Explorer(Node):
         self.loop_state = next_state
 
     def handle_navigation_result(self):
+        """Handle navigation result. Returns True if scan should follow, False to re-plan immediately."""
         result = self.navigator.getResult()
 
         if result == TaskResult.SUCCEEDED:
-        self.get_logger().info('Arrived at frontier!')
-        return True  # Scan after successful arrival
+            self.get_logger().info('Arrived at frontier!')
+            return True  # Scan after successful arrival
 
         elif result == TaskResult.FAILED:
-        if not self.has_started_moving:
-        self.get_logger().warn('PLANNER FAILED')
-        self.goal_blacklist.append(self.current_goal)
-        return False  # Skip scan, re-plan immediately
-        else:
-        self.get_logger().error('CONTROLLER FAILED')
-        return True  # Scan after controller failure
+            if not self.has_started_moving:
+                self.get_logger().warn('PLANNER FAILED')
+                self.goal_blacklist.append(self.current_goal)
+                return False  # Skip scan, re-plan immediately
+            else:
+                self.get_logger().error('CONTROLLER FAILED')
+                return True  # Scan after controller failure
 
         elif result == TaskResult.CANCELED:
-        self.get_logger().info('Goal was canceled.')
-        return True  # Scan after cancellation
+            self.get_logger().info('Goal was canceled.')
+            return True  # Scan after cancellation
 
         else:
-        self.get_logger().error(f"Unknown navigation result: {result}")
-        return True  # Conservative: scan on unknown result
+            self.get_logger().error(f"Unknown navigation result: {result}")
+            return True  # Conservative: scan on unknown result
 
     def handle_explore_frontier_state(self):
         if not self.goal_in_progress:
@@ -818,6 +819,7 @@ class Explorer(Node):
         )
 
     def publish_exploration_done(self):
+        """Publish a signal indicating that exploration is complete."""
         self.exploration_done_pub.publish(Empty())
         self.get_logger().info("Exploration complete - published exploration_done signal")
             

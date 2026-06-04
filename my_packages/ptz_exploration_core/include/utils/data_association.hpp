@@ -5,6 +5,7 @@
 #include <memory>
 #include <utility>
 #include <cstdint>
+#include <optional>
 #include <Eigen/Dense>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/geometry/Unit3.h>
