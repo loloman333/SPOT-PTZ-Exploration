@@ -1,0 +1,9 @@
+#you can use this file to specify the topics you want to record in your bag file.
+#As this just parses the topics, you can even add settings like -a to record all topics, or use regexes to filter topics.
+topics:
+  - -a
+  # some examples of topics you might want to record
+  #- /spotty/joint_states
+  #- /tf
+  #- /spotty/camera/hand/image
+  #- -e "/spotty/.*"

@@ -1,0 +1,195 @@
+objects:
+  - name: rescue_randy_1
+    uri: https://fuel.ignitionrobotics.org/1.0/OpenRobotics/models/Rescue Randy Sitting
+    target: false
+    pose:
+      x: -1.19 # -10.0
+      y: -4.7 # 5.0
+      z: 0.37
+      roll: 0.0
+      pitch: 0.0
+      yaw: -1.99 # 3.141593
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.25
+
+  - name: bike
+    uri: https://fuel.gazebosim.org/1.0/athackst/models/bicycle
+    target: false
+    pose:
+      x: -14.41
+      y: -2.67
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 3.0
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.35
+
+  - name: toilet
+    uri: https://fuel.gazebosim.org/1.0/OpenRobotics/models/Toilet
+    target: false
+    pose:
+      x: -1.17
+      y: -4.67
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 2.54
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.28
+
+  - name: Suitcase Blue 1
+    uri: https://fuel.gazebosim.org/1.0/OpenRobotics/models/Suitcase1
+    target: true
+    pose:
+      x: -14.63
+      y: 2.28
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.27
+
+  - name: Suitcase Blue 2
+    uri: https://fuel.gazebosim.org/1.0/OpenRobotics/models/Suitcase1H
+    target: true
+    pose:
+      x: 1.68
+      y: 3.41
+      z: 1.24
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.27
+
+  - name: Suitcase Blue 3
+    uri: https://fuel.gazebosim.org/1.0/OpenRobotics/models/Suitcase1H
+    target: true
+    pose:
+      x: 7.97
+      y: -3.72
+      z: 0.01
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.47
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.27
+
+  - name: Suitcase Blue 4
+    uri: https://fuel.gazebosim.org/1.0/OpenRobotics/models/Suitcase1
+    target: true
+    pose:
+      x: -7.59
+      y: -4.34
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 1.4
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.27
+
+  - name: Suitcase Pink 1
+    uri: https://fuel.gazebosim.org/1.0/OpenRobotics/models/Suitcase2
+    target: true
+    pose:
+      x: -0.29
+      y: -2.84
+      z: 1.27
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.33
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.22
+
+  - name: Suitcase Pink 2
+    uri: https://fuel.gazebosim.org/1.0/OpenRobotics/models/Suitcase2H
+    target: true
+    pose:
+      x: 7.51
+      y: 4.12
+      z: 0.0
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.96
+    center_offset:
+      x: 0.0
+      y: 0.0
+      z: 0.22
+
+  # - name: Cardboard Box 1
+  #   uri: https://fuel.gazebosim.org/1.0/QCforward/models/carboard%20box
+  #   target: false
+  #   pose:
+  #     x: -7.48
+  #     y: -3.48
+  #     z: 0.15
+  #     roll: 0.0
+  #     pitch: 0.0
+  #     yaw: 0.33
+  #   center_offset:
+  #     x: 0.0
+  #     y: 0.0
+  #     z: 0.15
+
+  # - name: Cardboard Box 2
+  #   uri: https://fuel.gazebosim.org/1.0/QCforward/models/carboard%20box
+  #   target: false
+  #   pose:
+  #     x: -13.86
+  #     y: -7.23
+  #     z: 0.15
+  #     roll: 0.0
+  #     pitch: 0.0
+  #     yaw: 0.08
+  #   center_offset:
+  #     x: 0.0
+  #     y: 0.0
+  #     z: 0.15
+
+  # - name: Cardboard Box 3
+  #   uri: https://fuel.gazebosim.org/1.0/QCforward/models/carboard%20box
+  #   target: false
+  #   pose:
+  #     x: -14.51
+  #     y: -7.09
+  #     z: 0.15
+  #     roll: 0.0
+  #     pitch: 0.0
+  #     yaw: 1.36
+  #   center_offset:
+  #     x: 0.0
+  #     y: 0.0
+  #     z: 0.15
+
+  # - name: Cardboard Box 4
+  #   uri: https://fuel.gazebosim.org/1.0/QCforward/models/carboard%20box
+  #   target: false
+  #   pose:
+  #     x: -14.25
+  #     y: -7.20
+  #     z: 0.45
+  #     roll: 0.0
+  #     pitch: 0.0
+  #     yaw: 0.24
+  #   center_offset:
+  #     x: 0.0
+  #     y: 0.0
+  #     z: 0.15

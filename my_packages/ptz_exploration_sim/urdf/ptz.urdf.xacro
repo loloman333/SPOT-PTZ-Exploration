@@ -1,0 +1,102 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="ptz" params="name parent_link *origin">
+
+        <joint name="${name}_base_joint" type="fixed">
+            <xacro:insert_block name="origin" />
+            <parent link="${parent_link}"/>
+            <child link="${name}_origin_link"/>
+        </joint>
+
+        <link name="${name}_origin_link"></link>
+
+        <joint name="${name}_pan_joint" type="continuous">
+            <parent link="${name}_origin_link"/>
+            <child link="${name}_pan_link_virtual"/>
+            <axis xyz="0 0 1"/>
+            <damping>8.0</damping>
+            <friction>4.0</friction>
+        </joint>
+
+        <link name="${name}_pan_link_virtual">
+            <inertial>
+                <mass value="1.0"/>
+                <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.005" iyz="0" izz="0.005"/>
+            </inertial>
+        </link>
+
+        <joint name="${name}_tilt_joint" type="revolute">
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <parent link="${name}_pan_link_virtual"/>
+            <child link="${name}_link"/>
+            <axis xyz="0 1 0"/>
+            <limit lower="-3.14" upper="3.14" effort="10.0" velocity="5.0"/>
+            <damping>8.0</damping>
+            <friction>4.0</friction>
+        </joint>
+
+        <link name="${name}_link">
+            <visual>
+                <geometry>
+                    <box size="0.05 0.05 0.05"/>
+                </geometry>
+                <material name="red">
+                    <color rgba="1 0 0 1"/>
+                </material>
+            </visual>
+            <inertial>
+                <mass value="2.0"/>
+                <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+            </inertial>
+        </link>
+
+        <gazebo>
+            <plugin filename="ignition-gazebo-joint-position-controller-system" name="ignition::gazebo::systems::JointPositionController">
+                <joint_name>${name}_pan_joint</joint_name>
+                <topic>${name}/cmd_pan</topic>
+                <p_gain>4.0</p_gain>
+                <i_gain>0.0</i_gain>
+                <d_gain>0.8</d_gain>
+                <i_max>0.2</i_max>
+                <i_min>-0.2</i_min>
+            </plugin>
+
+            <plugin filename="ignition-gazebo-joint-position-controller-system" name="ignition::gazebo::systems::JointPositionController">
+                <joint_name>${name}_tilt_joint</joint_name>
+                <topic>${name}/cmd_tilt</topic>
+                <p_gain>4.0</p_gain>
+                <i_gain>0.0</i_gain>
+                <d_gain>0.8</d_gain>
+                <i_max>0.2</i_max>
+                <i_min>-0.2</i_min>
+            </plugin>
+
+        </gazebo>
+
+        <gazebo reference="${name}_link">
+            <sensor type="camera" name="${name}_raw_sensor">
+                <update_rate>5.0</update_rate>
+                <always_on>1</always_on>
+                <topic>${name}/raw_full/image</topic>
+                <visualize>true</visualize>
+                <ignition_frame_id>${name}_optical_link</ignition_frame_id>
+                <camera>
+                    <horizontal_fov>${pi/2}</horizontal_fov>
+                    <image>
+                       <width>3200</width> <!-- <width>2560</width> -->
+                        <height>1800</height> <!-- <height>1440</height> -->
+                        <format>R8G8B8</format>
+                    </image>
+                    <clip>
+                        <near>0.1</near>
+                        <far>100.0</far>
+                    </clip>
+                </camera>
+            </sensor>
+        </gazebo>
+
+    </xacro:macro>
+</robot>
+
+
+

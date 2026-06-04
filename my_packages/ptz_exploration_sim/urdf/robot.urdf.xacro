@@ -1,0 +1,40 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="robot">
+
+    <!-- Arguments -->
+    <xacro:arg name='ptz_camera' default='true'/>
+    <xacro:arg name='360_camera' default='false'/>
+    <xacro:arg name="sparse_pointcloud" default="false"/>
+
+    <!-- Base Robot -->
+    <xacro:include filename="$(find ptz_exploration_sim)/urdf/base.urdf.xacro"/> 
+
+    <!-- Sensors -->
+
+    <!-- 360 Degree Camera -->
+    <xacro:if value="$(arg 360_camera)">
+        <xacro:include filename="$(find ptz_exploration_sim)/urdf/camera.urdf.xacro"/>
+
+        <xacro:camera name="front_cam_360" parent_link="base_link">
+            <origin xyz="0.0 0.0 0.5" rpy="0.0 0.0 0.0"/>
+        </xacro:camera>
+        <xacro:camera name="rear_cam_360" parent_link="base_link">
+            <origin xyz="0.0 0.0 0.5" rpy="0.0 0.0 ${pi}"/>
+        </xacro:camera>
+        <xacro:camera name="left_cam_360" parent_link="base_link">
+            <origin xyz="0.0 0.0 0.5" rpy="0.0 0.0 1.5708"/>
+        </xacro:camera>
+        <xacro:camera name="right_cam_360" parent_link="base_link">
+            <origin xyz="0.0 0.0 0.5" rpy="0.0 0.0 -1.5708"/>
+        </xacro:camera>
+    </xacro:if>
+
+    <!-- PTZ Camera -->
+    <xacro:if value="$(arg ptz_camera)">
+        <xacro:include filename="$(find ptz_exploration_sim)/urdf/ptz.urdf.xacro"/>
+        <xacro:ptz name="ptz_cam" parent_link="base_link">
+            <origin xyz="0.0 0.0 0.6" rpy="0.0 0.0 0.0"/>
+        </xacro:ptz>
+    </xacro:if>
+
+</robot>

@@ -1,0 +1,63 @@
+# -----------------------------------------------------------------------------
+# Common parameters
+# -----------------------------------------------------------------------------
+/**:
+  ros__parameters:
+    pkg_name: ptz_exploration_sim
+    robot_name: robot
+    world_name: depot
+    use_sim_time: true
+
+# -----------------------------------------------------------------------------
+# Launch parameters
+# -----------------------------------------------------------------------------
+launch:
+  ros__parameters:
+    # Gazebo log level: 0=FATAL, 1=ERROR, 2=WARN, 3=INFO, 4=DEBUG.
+    gazebo_verbosity: 1 # 0: FATAL, 1: ERROR, 2: WARN, 3: INFO, 4: DEBUG
+
+    # Initial robot pose in the selected world.
+    initial_pose:
+      x: -5.0
+      y: 0.0
+      z: 2.5
+      roll: 0.0
+      pitch: 0.0
+      yaw: 0.0
+
+    # Enable the PTZ camera simulator node.
+    simulate_ptz: True
+    # Enable the 360-degree camera ring.
+    simulate_360_camera: True
+
+    # Start RViz alongside the simulation.
+    launch_rviz: True
+
+# -----------------------------------------------------------------------------
+# PTZ camera simulator
+# -----------------------------------------------------------------------------
+ptz_simulator:
+  ros__parameters:
+    # Default PTZ field of view in radians.
+    default_fov: 1.111775 # 63,7 degress - like SPOTs PTZ
+
+    # How close the commanded PTZ state must be before it is considered settled.
+    error_tolerance: 0.02
+    # Parent link for the simulated PTZ camera frame.
+    parent_link: ptz_cam_link
+    # Xacro template used to generate the PTZ camera sensor description.
+    xacro_filename: camera_tick.sdf.xacro
+    
+    # Joint names for the simulated PTZ camera.
+    pan_joint: ptz_cam_pan_joint
+    tilt_joint: ptz_cam_tilt_joint
+    # Topic used by the simulator to receive PTZ commands.
+    ptz_cmd_topic: /ptz_cmd
+
+    # Zoom factor bounds used by the simulator backend.
+    min_zoom_factor: 1.0
+    max_zoom_factor: 30.0
+
+    # Output image resolution published by the PTZ simulator.
+    ptz_output_width: 640
+    ptz_output_height: 360

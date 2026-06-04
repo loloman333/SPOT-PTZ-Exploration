@@ -1,0 +1,182 @@
+# ubuntu 22.04; cuda 12.6
+FROM osrf/ros:humble-desktop-full
+
+#set shell 
+SHELL ["/bin/bash", "-c"]
+#set colors
+ENV BUILDKIT_COLORS=run=green:warning=yellow:error=red:cancel=cyan
+ENV DEBIAN_FRONTEND=noninteractive
+#start with root user
+USER root
+
+# ---------CREATE USER----------------
+# This section creates the appuser, sets
+# up groups and sudo, and ensures the
+# container doesn’t run as root.
+# - Changes appuser password to admin , so we can sudo in the container
+# - Copy default bashrc and add ROS sourcing
+# ------------------------------------
+
+ARG HOST_USER_GROUP_ARG
+
+RUN groupadd -g 999 appuser && \
+    groupadd -g $HOST_USER_GROUP_ARG hostgroup && \
+    useradd --create-home --shell /bin/bash -u 999 -g appuser appuser && \
+    echo 'appuser:admin' | chpasswd && \
+    usermod -aG sudo,hostgroup,plugdev,video,adm,cdrom,dip,dialout appuser && \
+    cp /etc/skel/.bashrc /home/appuser/  
+
+# ----------------BASIC DEPENDECIES----------------
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    netbase\
+    git\
+    build-essential\    
+    wget\
+    curl\
+    gdb\
+    lsb-release\
+    sudo\
+    jq &&\
+    rm -rf /var/lib/apt/lists/*
+
+# ----------------EXTRA DEPENDENCIES----------------
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    python3-pip\
+    python3-distutils\
+    python3-apt &&\
+    rm -rf /var/lib/apt/lists/*
+
+# ----------------ROS2 SOURCE----------------
+RUN echo "source /opt/ros/humble/setup.bash" >> /home/appuser/.bashrc
+
+# ----------------SPOT SDK INSTALL----------------
+# dependencies
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    ros-humble-joint-state-publisher-gui\
+    ros-humble-tf-transformations\
+    ros-humble-xacro\
+    ros-humble-depth-image-proc\
+    ros-humble-tl-expected\
+    ros-humble-ros2-control\
+    ros-humble-ros2-controllers\
+    ros-humble-ros-gz\
+    ros-humble-bondcpp\
+    ros-humble-bondpy\
+    mc\
+    ffmpeg \
+    libavdevice-dev \
+    libavfilter-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+USER appuser
+RUN mkdir -p /home/appuser/ros2_ws/src && \
+    git clone https://github.com/bdaiinstitute/spot_ros2.git /home/appuser/ros2_ws/src/spot_ros2 && \
+    cd /home/appuser/ros2_ws/src/spot_ros2 && \
+    git checkout 818f368806938fe215b1a03389d44bf67be62587 && \
+    git submodule update --init
+
+COPY --chown=appuser:appuser ./misc/tests_and_constraints/constraints.txt /home/appuser/ros2_ws/constraints.txt
+
+# Install apt dependencies for spot_ros2
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    qttools5-dev
+
+# Install Python dependencies
+USER appuser
+RUN python3 -m pip install -r /home/appuser/ros2_ws/src/spot_ros2/spot_wrapper/requirements.txt -c /home/appuser/ros2_ws/constraints.txt && \
+    python3 -m pip install \
+        "exceptiongroup>=1.0.0rc8" \
+        "execnet>=1.1" && \
+    python3 -m pip install --force-reinstall -v "setuptools==59.6.0"
+
+# Download and install bosdyn_msgs release
+USER root
+RUN wget -q -O /tmp/bosdyn_msgs.run \
+        https://github.com/bdaiinstitute/bosdyn_msgs/releases/download/5.0.1/ros-humble-bosdyn_msgs_5.0.1-jammy_amd64.run && \
+    chmod +x /tmp/bosdyn_msgs.run && \
+    mkdir -p /etc/ros/rosdep/ && \
+    yes | /tmp/bosdyn_msgs.run --nox11 && \
+    rm /tmp/bosdyn_msgs.run
+
+# Download and install spot-cpp-sdk
+RUN wget -q -O /tmp/spot-cpp-sdk.deb \
+        https://github.com/bdaiinstitute/spot-cpp-sdk/releases/download/v5.0.1/spot-cpp-sdk_5.0.1_amd64.deb && \
+    dpkg -i /tmp/spot-cpp-sdk.deb && \
+    rm /tmp/spot-cpp-sdk.deb
+
+USER appuser
+
+# Build the initial workspace
+ARG COLCON_BUILD_TYPE
+USER appuser
+RUN cd /home/appuser/ros2_ws && \
+    source /opt/ros/humble/setup.bash && \
+    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=$COLCON_BUILD_TYPE
+
+# ----------------INSTALL LIVOX VIEWER AND ROS PACKAGES----------------
+# install livox sdk2 https://github.com/Livox-SDK/Livox-SDK2/blob/master/README.md
+USER appuser
+RUN cd /home/appuser && \
+    git clone https://github.com/Livox-SDK/Livox-SDK2.git && \
+    cd Livox-SDK2 && \
+    git checkout v1.2.4 && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make
+USER root
+RUN cd /home/appuser/Livox-SDK2/build && \
+    make install && \
+    rm -r /home/appuser/Livox-SDK2
+
+# install Livox Viewer 2 https://www.livoxtech.com/mid-360/downloads
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    wget\
+    unzip
+USER appuser
+RUN cd /home/appuser && \
+    wget --user-agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"\
+    https://terra-1-g.djicdn.com/65c028cd298f4669a7f0e40e50ba1131/Mid360/LivoxViewer2%20for%20Ubuntu%20v2.3.0.zip && \
+    unzip LivoxViewer2\ for\ Ubuntu\ v2.3.0.zip && \
+    rm LivoxViewer2\ for\ Ubuntu\ v2.3.0.zip && \
+    mv LivoxViewer2\ for\ Ubuntu\ v2.3.0 LiVOX_Viewer_2
+
+# install LiVOX ROS2 driver: https://github.com/Livox-SDK/livox_ros_driver2
+USER appuser
+RUN cd /home/appuser/ros2_ws/src && \
+    git clone https://github.com/Livox-SDK/livox_ros_driver2 && \
+    cd livox_ros_driver2 && \
+    git checkout 1.2.4 && \
+    cp -f package_ROS2.xml package.xml && \
+    cp -rf launch_ROS2/ launch/
+
+# build ROS2 drivers
+USER appuser
+RUN cd /home/appuser/ros2_ws && \
+    source /opt/ros/humble/setup.bash && \
+    MAKEFLAGS=-j1 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=$COLCON_BUILD_TYPE -DHUMBLE_ROS=humble
+
+# ----------------COPY TESTS ------------
+
+COPY --chown=appuser:appuser ./misc/tests_and_constraints/test_required_packages.py /home/appuser/ros2_ws/test_required_packages.py
+USER appuser
+RUN chmod +x /home/appuser/ros2_ws/test_required_packages.py
+
+# ----------------BASHRC CONFIG----------------
+
+# Source the install setup in .bashrc for future terminals
+RUN echo 'source /home/appuser/ros2_ws/install/setup.bash' >> /home/appuser/.bashrc
+# Create an alias for building my_packages
+# This allows users to quickly build only the my_packages directory
+RUN echo 'alias build_my_packages="cd /home/appuser/ros2_ws && colcon build --symlink-install --base-paths src/my_packages && source install/setup.bash"' >> /home/appuser/.bashrc
+USER appuser

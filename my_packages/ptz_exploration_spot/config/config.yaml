@@ -1,0 +1,135 @@
+/**:
+  ros__parameters:
+
+    # ----------------------------------------------------------------------------
+    # Spot authentication and connection details
+    # ----------------------------------------------------------------------------
+    # Credentials used by the Spot SDK to connect to the robot.
+    username: "user"
+    password: "password"
+    hostname: "192.168.50.3" # The IP address of the robot
+
+    # ----------------------------------------------------------------------------
+    # Spot SDK update rates
+    # ----------------------------------------------------------------------------
+    # Frequency of lease / state / image polling from the Spot backend.
+    metrics_rate: 0.04
+    lease_rate: 1.0
+    async_tasks_rate: 10.0
+    robot_state_rate: 40.0  # Rate in Hz at which you receive joint state, TF, status updates, etc from state publisher node
+    image_rate: 2.0  # Rate in Hz at which you receive images
+
+    # ----------------------------------------------------------------------------
+    # High-level robot behavior flags
+    # ----------------------------------------------------------------------------
+    # These flags control whether the driver should automatically claim the lease,
+    # power on the robot, and stand it up during startup.
+    auto_claim: False
+    auto_power_on: False
+    auto_stand: False
+
+    # ----------------------------------------------------------------------------
+    # Emergency stop configuration
+    # ----------------------------------------------------------------------------
+    # Safety timeout and whether to arm estop on startup.
+    estop_timeout: 18.0
+    start_estop: False
+
+    # ----------------------------------------------------------------------------
+    # TF / odometry conventions
+    # ----------------------------------------------------------------------------
+    # `preferred_odom_frame` controls which Spot frame is used as the odometry
+    # parent, while `tf_root` defines the root of the TF tree published by the
+    # driver stack.
+    preferred_odom_frame: vision # pass either odom/vision. This frame will become the parent of body in tf2 tree and will be used in odometry topic. https://dev.bostondynamics.com/docs/concepts/geometry_and_frames.html?highlight=frame#frames-in-the-spot-robot-world for more info.
+    tf_root: odom # Allowed values are: [odom, vision, body], without a prefix. This will set the root frame in your TF tree.
+    spot_name: "spotty"
+    frame_prefix: "spotty"
+
+    # ----------------------------------------------------------------------------
+    # Command durations
+    # ----------------------------------------------------------------------------
+    # Command timeout windows used by the Spot body and arm velocity commands.
+    cmd_duration: 0.8 # The duration of cmd_vel commands. Increase this if spot stutters when publishing cmd_vel.
+    arm_cmd_duration: 0.8 # The duration of arm_vel commands. Decrease this if the arm has a delay. Publish it at more than 4 Hz
+
+    # ----------------------------------------------------------------------------
+    # Optional Velodyne payload support
+    # ----------------------------------------------------------------------------
+    # Enable this only when the robot has the EAP velodyne payload available.
+    use_velodyne: False # Set to True to stream point clouds from the velodyne on Spot EAP
+    velodyne_rate: 10.0 # The rate in Hz that the velodyne will stream at    
+
+    # ----------------------------------------------------------------------------
+    # Stitched image calibration
+    # ----------------------------------------------------------------------------
+    # These values are used by the image stitcher node and were tuned manually.
+    # Adjust them if the stitched image projection looks wrong on your robot.
+
+    # Virtual camera intrinsic matrix [fx, 0, cx, 0, fy, cy, 0, 0, 1].
+    # fx stretches the image left-right, fy zooms in, cx moves the image left-right,
+    # cy moves the image up-down.
+    virtual_camera_intrinsics: [385.0, 0.0, 315.0, 0.0, 385.0, 844.0, 0.0, 0.0, 1.0]
+    # Plane that the stitched image is projected onto in the virtual camera frame.
+    virtual_camera_projection_plane: [-0.15916, 0.0, 0.987253]
+    # The distance from the virtual camera frame to the projection plane
+    virtual_camera_plane_distance: 10.0
+    # Output height padding used when generating the stitched panorama.
+    stitched_image_row_padding: 1182
+
+    # Set to True if the robot arm is missing the gripper.
+    gripperless: False
+
+    # Enable RViz with the Spot bringup.
+    launch_rviz: true
+
+    # ----------------------------------------------------------------------------
+    # SpotCAM and image pipeline
+    # ----------------------------------------------------------------------------
+    # Set to True when using a SpotCAM payload module.
+    initialize_spot_cam: true # Set to True if you are connecting to a SpotCam payload module.
+    # List the cameras that should be initialized by the driver.
+    cameras_used: ["frontleft", "frontright", "left", "right", "back"] # List the cameras you want to use Valid options are: frontleft, frontright, left, right, back, hand.
+    # Enable or disable the image publisher nodes.
+    launch_image_publishers: true
+    # Depth mode used by the image pipeline.
+    depth_registered_mode: "from_spot"
+    # Publish point clouds generated from depth images.
+    publish_point_clouds: true
+    # Store images in uncompressed form.
+    uncompress_images: true
+    # Also publish compressed image topics.
+    publish_compressed_images: false
+    # Use the stitched front-camera panorama instead of individual streams.
+    stitch_front_images: false
+    # Set to False if the robot has greyscale cameras instead of RGB.
+    rgb_cameras: true  # Set to False if your robot has greyscale cameras
+    
+ptz_wrapper:
+  ros__parameters:
+    # ----------------------------------------------------------------------------
+    # PTZ wrapper topics and service wiring
+    # ----------------------------------------------------------------------------
+    # Input command topic used by the exploration stack.
+    ptz_cmd_topic: /ptz_cmd
+    # Spot driver service used to send PTZ commands to the robot.
+    ptz_service_name: /spotty/set_ptz_position
+    # Spot camera name for the PTZ payload.
+    ptz_name: mech
+    # Enable publishing of the PTZ video stream.
+    publish_stream: true
+
+    # Output topics for the PTZ stream and camera info.
+    stream_topic: spotty/camera/ptz/image
+    camera_info_topic: spotty/camera/ptz/camera_info
+    # TF frame associated with the PTZ camera.
+    frame_id: spotty/ptz
+    # TF broadcast frequency for the PTZ camera frame.
+    tf_publish_rate_hz: 10.0
+    # Frequency for republishing the PTZ image stream.
+    stream_publish_rate_hz: 3.0
+    # WebRTC stream quality settings.
+    webrtc_bitrate_bps: 120000
+    webrtc_refresh_interval: 2
+    webrtc_idr_interval: 45
+    webrtc_awb: 0

@@ -1,0 +1,56 @@
+# Plot configurations for the PTZ exploration project
+
+# Time series plots for individual runs
+per_run:
+  plots: []
+    # All available metrics:
+    # - [distance]
+    # - [rotation]
+    # - [battery]
+    # - [area]
+    # - [landmarks]
+    # - [confidence]
+    # - [uncertainty]
+    # - [error]
+
+    # Chosen plots:
+    # - [distance, battery, area]
+    # - [landmarks, confidence, uncertainty, error]
+
+  settings:
+    sync_x_axis: false  # Whether to synchronize x-axis limits within each group
+    sync_y_axis: false  # Whether to synchronize y-axis limits within each group
+
+# Bar charts comparing the end state of multiple runs
+bar_comparison:
+  plots:
+    # All available metrics:
+    # - [time]
+    # - [distance]
+    # - [rotation]
+    # - [battery]
+    # - [area]
+    # - [landmarks]
+    # - [confidence]
+    # - [uncertainty]
+    # - [error]
+
+    # Chosen plots:
+    - [time, distance, battery, area]
+    - [landmarks, confidence, uncertainty, error]
+
+# Line charts comparing the time series of multiple runs
+chart_comparison:
+  plots:
+    # All available metrics:
+    # - [distance]
+    # - [rotation]
+    # - [battery]
+    # - [area]
+    # - [landmarks]
+    # - [confidence]
+    # - [uncertainty]
+    # - [error]
+
+    # Chosen plots:
+    - [distance, battery, area, landmarks, confidence, uncertainty, error]

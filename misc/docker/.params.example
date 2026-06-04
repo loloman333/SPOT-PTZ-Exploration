@@ -1,0 +1,7 @@
+container_name="my_project"
+image_name="my-project"
+image_tag="latest"
+my_packages_folder="./../../my_packages"
+data_folder="./../../data"
+vscode_folder="./../.vscode"
+COLCON_BUILD_TYPE=Debug

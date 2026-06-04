@@ -1,0 +1,172 @@
+################## To choose base image
+# If you build the base yourself use one of these:
+# FROM spot-ros2:ros2
+# FROM spot-ros2:cuda
+# FROM spot-ros2:l4t # not yet working
+# If you pull from git.sztaki.hu use one of these:
+# FROM git.sztaki.hu:5050/mplab/mplab/spot/spot_shared/spot_dev:ros2_v501
+# FROM git.sztaki.hu:5050/mplab/mplab/spot/spot_shared/spot_dev:cuda_v501
+# FROM git.sztaki.hu:5050/mplab/mplab/spot/spot_shared/spot_dev:l4t_v501 # not yet in repository
+
+################## To install additional apt packages:
+# USER root
+# RUN apt-get update && \
+#   apt-get install -y\
+#   <package_name> &&\
+#   rm -rf /var/lib/apt/lists/*
+
+################## To install additional python pip packages 
+# (do not use virtualenv or conda, because docker is already isolated). If this fails
+# than your dependencies might conflict with dependencies that are specifically installed
+# and constrained. Remove the constraints flag at your own risk.
+# USER appuser
+# RUN python3 -m pip install \
+#    <package_name>
+#    <package_name>
+#    -c /home/appuser/ros2_ws/constraints.txt
+
+################## To install additional ROS2 packages from source:
+# ARG COLCON_BUILD_TYPE
+# USER appuser
+# RUN cd /home/appuser/ros2_ws/src && \
+#    git clone <repository_url> && \
+#    cd <repository_folder> && \
+#    git checkout <tag_or_commit_id> && \
+#    cd /home/appuser/ros2_ws && \
+#    source /opt/ros/humble/setup.bash && \
+#    colcon build --cmake-args -DCMAKE_BUILD_TYPE=$COLCON_BUILD_TYPE
+
+################### To install vscode server with specific extensions defined in devcontainer.json:
+# The built container propably won't work perfectly on computers of others because of the specific vscode version.
+# Mostly stolen from here: https://gist.github.com/discrimy/6c21c10995f1914cf72cd8474d4501b2
+# It's great, because it means it is already installed into the image, so when starting a vscode instance inside 
+# the container, it will be already there. It will not have to download it.
+# More info: https://github.com/microsoft/vscode-remote-release/issues/1718
+# USER root
+# RUN apt-get update && \
+#     apt-get install -y\
+#     curl \
+#     jq && \
+#     rm -rf /var/lib/apt/lists/*
+# COPY  --chown=appuser:appuser ./misc/.devcontainer/ /home/appuser/ros2_ws/.devcontainer/
+# USER appuser
+# ARG VSCODE_COMMIT_HASH
+# RUN bash /home/appuser/ros2_ws/.devcontainer/preinstall_vscode.sh $VSCODE_COMMIT_HASH /home/appuser/ros2_ws/.devcontainer/devcontainer.json
+
+################### Example from now on ####################
+FROM git.sztaki.hu:5050/mplab/mplab/spot/spot_shared/spot_dev:l4t_v501
+
+#set shell 
+SHELL ["/bin/bash", "-c"]
+#set colors
+ENV BUILDKIT_COLORS=run=green:warning=yellow:error=red:cancel=cyan
+ENV DEBIAN_FRONTEND=noninteractive
+
+################### Install additional apt packages:
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    # ros-humble-vision-msgs-rviz-plugins \
+    iputils-ping &&\
+    rm -rf /var/lib/apt/lists/*
+
+# ROS2 Ocotomap server
+RUN wget https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -O - | sudo apt-key add -
+RUN echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null
+RUN apt-get update && \
+    apt-get install -y\
+    ros-humble-octomap \
+    ros-humble-octomap-server \
+    ros-humble-octomap-rviz-plugins
+
+#  GTSAM (Jammy-compatible PPA)
+RUN wget -qO - "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x4545AE2E66D6266DA83C8DF9E67B3C12ACDAD9C5" | gpg --dearmor -o /usr/share/keyrings/borglab-gtsam.gpg
+RUN echo "deb [signed-by=/usr/share/keyrings/borglab-gtsam.gpg] https://ppa.launchpadcontent.net/borglab/gtsam-release-4.1/ubuntu jammy main" > /etc/apt/sources.list.d/borglab-gtsam.list
+RUN apt-get update && apt-get install -y \
+    libgtsam-dev \
+    libgtsam-unstable-dev
+
+# ROS2 Navigation2
+RUN apt-get install -y \
+    ros-humble-navigation2 \
+    ros-humble-nav2-bringup \
+    ros-humble-vision-msgs \
+    ros-humble-nav2-rviz-plugins
+
+################### Install additional python pip packages:
+COPY --chown=appuser:appuser ./misc/tests_and_constraints/constraints.txt /home/appuser/ros2_ws/constraints.txt
+COPY --chown=appuser:appuser ./misc/tests_and_constraints/test_required_packages.py /home/appuser/ros2_ws/test_required_packages.py
+USER appuser
+RUN python3 -m pip install \
+    matplotlib==3.7.1 \
+    ultralytics --no-deps \
+    -c /home/appuser/ros2_ws/constraints.txt
+
+################### Install additional ROS2 packages from source:
+ARG COLCON_BUILD_TYPE
+USER appuser
+RUN cd /home/appuser/ros2_ws/src && \
+   git clone https://github.com/OctoMap/octomap_ros.git && \
+   cd octomap_ros && \
+   git checkout ros2_0.4.5 && \
+   cd /home/appuser/ros2_ws && \
+   source /opt/ros/humble/setup.bash && \
+   colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=$COLCON_BUILD_TYPE -DHUMBLE_ROS=humble
+
+################### Install vscode server
+# The built container propably won't work perfectly on computers of others because of the specific vscode version.
+# Mostly stolen from here: https://gist.github.com/discrimy/6c21c10995f1914cf72cd8474d4501b2
+# It's great, because it means it is already installed into the image, so when starting a vscode instance inside 
+# the container, it will be already there. It will not have to download it.
+# More info: https://github.com/microsoft/vscode-remote-release/issues/1718
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    curl \
+    jq && \
+    rm -rf /var/lib/apt/lists/*
+COPY  --chown=appuser:appuser ./misc/.devcontainer/ /home/appuser/ros2_ws/.devcontainer/
+USER appuser
+ARG VSCODE_COMMIT_HASH
+RUN bash /home/appuser/ros2_ws/.devcontainer/preinstall_vscode.sh $VSCODE_COMMIT_HASH /home/appuser/ros2_ws/.devcontainer/devcontainer.json
+
+################### Finally, install your own packages:
+# Copy user source folder into workspace
+COPY --chown=appuser:appuser ./my_packages /home/appuser/ros2_ws/src/my_packages
+# Build the initial workspace
+USER appuser
+RUN cd /home/appuser/ros2_ws && \
+    source /opt/ros/humble/setup.bash && \
+    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=$COLCON_BUILD_TYPE -DHUMBLE_ROS=humble
+
+############## Bashrc customization
+ 
+# Setup shared history for multiple terminals
+RUN echo "export HISTCONTROL=ignoredups:erasedups" >> /home/appuser/.bashrc
+RUN echo "shopt -s histappend" >> /home/appuser/.bashrc
+RUN echo "export PROMPT_COMMAND='history -a; history -c; history -r; $PROMPT_COMMAND'" >> /home/appuser/.bashrc
+
+# Set colorful prompt and 256color terminal
+RUN echo "export TERM=xterm-256color" >> /home/appuser/.bashrc
+RUN echo "export PS1='\[\e[92m\]\u\[\e[0m\]@\[\e[94m\]\h\[\e[0m\]:\[\e[35m\]\w\[\e[0m\]# '" >> /home/appuser/.bashrc
+
+# Make alias for building my_packages more robust for file renaming and moving
+RUN echo 'alias build_my_packages="cd /home/appuser/ros2_ws && colcon build --cmake-force-configure --cmake-clean-cache --symlink-install --base-paths src/my_packages && source install/setup.bash"' >> /home/appuser/.bashrc
+# Add alias for cleaning build, install and log folders of packages in my_packages
+RUN echo 'alias clean_my_packages="cd /home/appuser/ros2_ws && for pkg in \$(ls src/my_packages); do rm -rf build/\$pkg install/\$pkg log/\$pkg; done && echo \"Cleaned packages in my_packages\""' >> /home/appuser/.bashrc
+
+############## Fast DDS Shared Memory (SHM) Transport Setup
+
+# Ensure /dev/shm has proper permissions for Fast DDS SHM transport
+# This allows appuser to create shared memory segments for ROS 2 DDS communication
+USER root
+RUN chmod 1777 /dev/shm && \
+    mkdir -p /home/appuser/.ros/shm && \
+    chown -R appuser:appuser /home/appuser/.ros && \
+    chmod 755 /home/appuser/.ros
+
+# Set Fast DDS environment variable to use custom shared memory folder (optional but recommended)
+RUN echo 'export FASTDDS_SHM_FOLDER=/home/appuser/.ros/shm' >> /home/appuser/.bashrc
+
+# Set default user to appuser for interactive shells
+USER appuser

@@ -1,0 +1,269 @@
+# ubuntu 22.04; cuda 12.6; Jetpack 6.1
+FROM nvcr.io/nvidia/l4t-jetpack:r36.4.0
+
+#set shell 
+SHELL ["/bin/bash", "-c"]
+#set colors
+ENV BUILDKIT_COLORS=run=green:warning=yellow:error=red:cancel=cyan
+ENV DEBIAN_FRONTEND=noninteractive
+#start with root user
+USER root
+
+# ---------CREATE USER----------------
+# This section creates the appuser, sets
+# up groups and sudo, and ensures the
+# container doesn’t run as root.
+# - Changes appuser password to admin , so we can sudo in the container
+# - Copy default bashrc and add ROS sourcing
+# ------------------------------------
+
+ARG HOST_USER_GROUP_ARG
+
+RUN groupadd -g 999 appuser && \
+    groupadd -g $HOST_USER_GROUP_ARG hostgroup && \
+    useradd --create-home --shell /bin/bash -u 999 -g appuser appuser && \
+    echo 'appuser:admin' | chpasswd && \
+    usermod -aG sudo,hostgroup,plugdev,video,adm,cdrom,dip,dialout appuser && \
+    cp /etc/skel/.bashrc /home/appuser/  
+
+# ----------------BASIC DEPENDECIES----------------
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    netbase\
+    git\
+    build-essential\    
+    wget\
+    curl\
+    gdb\
+    lsb-release\
+    sudo\
+    jq
+
+# ----------------EXTRA DEPENDENCIES----------------
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    iputils-ping\
+    python3-pip\
+    python3-distutils\
+    python3-apt\
+    libopenblas-dev
+
+# ----------------TORCH AND FRIENDS----------------
+# ----------------CUSPARSELT INSTALLATION----------------
+# The following section installs the cuSPARSELt library,
+#! from here https://binodmx.medium.com/installing-pytorch-for-nvidia-jetson-orin-nano-developer-kit-920e5cef3fcb
+USER root
+RUN set -ex && \
+    CUSPARSELT_NAME="libcusparse_lt-linux-aarch64-0.6.2.3-archive" && \
+    mkdir -p /tmp_cusparselt && \
+    curl --retry 3 -OLs https://developer.download.nvidia.com/compute/cusparselt/redist/libcusparse_lt/linux-aarch64/${CUSPARSELT_NAME}.tar.xz && \
+    tar xf ${CUSPARSELT_NAME}.tar.xz -C /tmp_cusparselt && \
+    cp -a /tmp_cusparselt/${CUSPARSELT_NAME}/include/* /usr/local/cuda/include/ && \
+    cp -a /tmp_cusparselt/${CUSPARSELT_NAME}/lib/* /usr/local/cuda/lib64/ && \
+    rm -rf /tmp_cusparselt && \
+    ldconfig
+
+# ----------------TORCH----------------
+#*https://docs.nvidia.com/deeplearning/frameworks/install-pytorch-jetson-platform-release-notes/pytorch-jetson-rel.html
+USER appuser
+RUN export TORCH_INSTALL=https://developer.download.nvidia.com/compute/redist/jp/v61/pytorch/torch-2.5.0a0+872d972e41.nv24.08.17622132-cp310-cp310-linux_aarch64.whl && \
+    python3 -m pip install --upgrade pip && \
+    python3 -m pip install numpy=='1.26.1' && \
+    python3 -m pip install --no-cache $TORCH_INSTALL
+
+
+# ----------------CUDA PATH and jtop----------------
+USER appuser
+RUN echo "export CUDA_HOME=/usr/local/cuda-12.6" >> /home/appuser/.bashrc
+USER root
+RUN python3 -m pip install jetson-stats
+
+# ----------------ROS2 INSTALL----------------
+# from https://docs.ros.org/en/humble/Installation/Ubuntu-Install-Debians.html
+USER root
+RUN rm -rf /var/lib/apt/lists/*
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(. /etc/os-release && echo $UBUNTU_CODENAME) main" | tee /etc/apt/sources.list.d/ros2.list > /dev/null && \
+    apt-get update && \
+    DEBIAN_FRONTEND=noninteractive\
+    apt-get install -y ros-humble-desktop \
+    ros-dev-tools
+RUN echo "source /opt/ros/humble/setup.bash" >> /home/appuse
+
+# ----------------ONNX GPU INSTALL----------------
+# https://docs.ultralytics.com/guides/nvidia-jetson/#install-pytorch-and-torchvision
+USER appuser
+RUN python3 -m pip install https://github.com/ultralytics/assets/releases/download/v0.0.0/onnxruntime_gpu-1.20.0-cp310-cp310-linux_aarch64.whl
+
+# ----------------build torchvision from source
+# idea from: https://github.com/azimjaan21/jetpack-6.1-pytorch-torchvision-
+# https://github.com/pytorch/vision/blob/main/CONTRIBUTING.md#development-installation
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    python3-pip\
+    libjpeg-dev\
+    libpng-dev\
+    libtiff-dev\
+    ffmpeg\
+    ninja-build
+USER appuser
+RUN python3 -m pip install --no-deps\
+    expecttest\
+    flake8\
+    typing\
+    mypy\
+    pytest\
+    pytest-mock\
+    scipy\
+    requests
+RUN cd /home/appuser && \
+    git clone https://github.com/pytorch/vision.git && \
+    cd vision && \
+    git checkout v0.20.0
+ENV FORCE_CUDA=1
+ENV TORCH_CUDA_ARCH_LIST="8.7"
+RUN cd /home/appuser/vision && \
+    python3 -m pip install . -v --no-build-isolation
+
+# ----------------SPOT SDK INSTALL----------------
+#dependencies
+USER root
+RUN apt-get update && \
+    apt-get install -y\
+    python3-pip\
+    ros-dev-tools\
+    ros-humble-joint-state-publisher-gui\
+    ros-humble-tf-transformations\
+    ros-humble-xacro\
+    ros-humble-depth-image-proc\
+    ros-humble-tl-expected\
+    ros-humble-ros2-control\
+    ros-humble-ros2-controllers\
+    ros-humble-rqt-tf-tree\
+    python3-distutils\
+    python3-apt\
+    mc
+
+# download sdk
+ARG SDK_VERSION
+ARG SUB_VERSION
+ARG ARCH
+USER appuser
+RUN python3 -m pip install\
+    bosdyn-client==$SDK_VERSION\
+    bosdyn-mission==$SDK_VERSION\
+    bosdyn-choreography-client==$SDK_VERSION\
+    bosdyn-orbit==$SDK_VERSION\
+    bosdyn-api==$SDK_VERSION\
+    bosdyn-core==$SDK_VERSION
+
+# ----------------SPOT ROS 2 INSTALL----------------
+ARG ROS2_CHECKOUT_HASH
+RUN mkdir -p /home/appuser/spot_ros2/src && \
+    git clone https://github.com/bdaiinstitute/spot_ros2.git /home/appuser/spot_ros2/src/spot_ros2 && \
+    cd /home/appuser/spot_ros2/src/spot_ros2 && \
+    git checkout $ROS2_CHECKOUT_HASH && \
+    git submodule update --init
+
+# Install Python dependencies
+USER appuser
+RUN python3 -m pip install --no-deps -r /home/appuser/spot_ros2/src/spot_ros2/spot_wrapper/requirements.txt && \
+    python3 -m pip install \
+        exceptiongroup==1.0.0rc8 \
+        av \
+        pyee \
+        pylibsrtp\
+        aioice\
+        google_crc32c && \
+    python3 -m pip install --force-reinstall -v "setuptools==59.6.0"
+
+# Download and install bosdyn_msgs release
+USER root
+RUN wget -q -O /tmp/bosdyn_msgs.run \
+        https://github.com/bdaiinstitute/bosdyn_msgs/releases/download/${SDK_VERSION}-${SUB_VERSION}/ros-humble-bosdyn_msgs_${SDK_VERSION}-${SUB_VERSION}-jammy_arm64.run && \
+    chmod +x /tmp/bosdyn_msgs.run && \
+    mkdir -p /etc/ros/rosdep/ && \
+    yes | /tmp/bosdyn_msgs.run --nox11 && \
+    rm /tmp/bosdyn_msgs.run
+
+# Download and install spot-cpp-sdk
+RUN wget -q -O /tmp/spot-cpp-sdk.deb \
+        https://github.com/bdaiinstitute/spot-cpp-sdk/releases/download/v${SDK_VERSION}/spot-cpp-sdk_${SDK_VERSION}_arm64.deb && \
+    dpkg -i /tmp/spot-cpp-sdk.deb && \
+    rm /tmp/spot-cpp-sdk.deb
+
+# Build the initial workspace
+ARG MY_BUILD_TYPE
+USER appuser
+RUN cd /home/appuser/spot_ros2 && \
+    source /opt/ros/humble/setup.bash && \
+    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=$MY_BUILD_TYPE --packages-ignore proto2ros_tests proto2ros
+
+# ----------------INSTALL LIVOX VIEWER AND ROS PACKAGES----------------
+# install livox sdk2 https://github.com/Livox-SDK/Livox-SDK2/blob/master/README.md
+USER appuser
+RUN cd /home/appuser && \
+    git clone https://github.com/Livox-SDK/Livox-SDK2.git && \
+    cd Livox-SDK2 && \
+    git checkout v1.2.4 && \
+    mkdir build && \
+    cd build && \
+    cmake .. && \
+    make
+USER root
+RUN cd /home/appuser/Livox-SDK2/build && \
+    make install && \
+    rm -r /home/appuser/Livox-SDK2
+
+# install LiVOX ROS2 driver: https://github.com/Livox-SDK/livox_ros_driver2
+# clone
+USER appuser
+RUN cd /home/appuser/spot_ros2/src && \
+    git clone https://github.com/Livox-SDK/livox_ros_driver2 && \
+    cd livox_ros_driver2 && \
+    git checkout 1.2.4 && \
+    cp -f package_ROS2.xml package.xml && \
+    cp -rf launch_ROS2/ launch/
+
+# build ROS2 drivers
+USER appuser
+RUN cd /home/appuser/spot_ros2 && \
+    source /opt/ros/humble/setup.bash && \
+    MAKEFLAGS=-j1 colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=$MY_BUILD_TYPE -DHUMBLE_ROS=humble --packages-ignore proto2ros_tests proto2ros
+
+# ----------------INSTALL VS CODE SERVER & EXTENSIONS----------------
+
+# Note: This setup installs VS Code server inside the image, so it's pre-installed when opening with devcontainers.
+# Reference: https://gist.github.com/discrimy/6c21c10995f1914cf72cd8474d4501b2
+COPY --chown=appuser:appuser ./misc/.devcontainer/ /home/appuser/spot_ros2/.devcontainer/
+
+# Run VS Code pre-install script with commit hash and devcontainer config
+ARG VSCODE_COMMIT_HASH
+RUN bash /home/appuser/spot_ros2/.devcontainer/preinstall_vscode.sh \
+    $VSCODE_COMMIT_HASH \
+    /home/appuser/spot_ros2/.devcontainer/devcontainer.json
+
+# Create .vscode folder (can be used for user settings, extensions, etc.)
+RUN mkdir -p /home/appuser/spot_ros2/.vscode
+
+# ----------------ADD AND BUILD MY PACKAGES FOLDER ------------
+
+# Copy user source folder into workspace
+COPY --chown=appuser:appuser ./my_packages /home/appuser/spot_ros2/src/my_packages
+
+# Build the initial workspace
+USER appuser
+RUN cd /home/appuser/spot_ros2 && \
+    source /opt/ros/humble/setup.bash && \
+    colcon build --symlink-install --packages-ignore proto2ros_tests proto2ros --cmake-args -DCMAKE_BUILD_TYPE=$MY_BUILD_TYPE
+
+# ----------------BASHRC CONFIG----------------
+
+# Source the install setup in .bashrc for future terminals
+RUN echo 'source /home/appuser/spot_ros2/install/setup.bash' >> /home/appuser/.bashrc
+# Create an alias for building my_packages
+# This allows users to quickly build only the my_packages directory
+RUN echo 'alias build_my_packages="cd /home/appuser/spot_ros2 && colcon build --symlink-install --base-paths src/my_packages && source install/setup.bash"' >> /home/appuser/.bashrc

@@ -1,0 +1,17 @@
+create-pages:
+  tags:
+    - docs
+  pages:
+    # The folder that contains the files to be exposed at the Page URL
+    publish: public
+  rules:
+    # This ensures that only pushes to the default branch will trigger
+    # a pages deploy
+    - if: '$CI_COMMIT_MESSAGE =~ /deploydoc/i'
+  # Functions that should be executed before the build script is run
+  before_script:
+    - pip install mkdocs mkdocs-material
+  script:
+    - rm -rf public   # Clean previous output
+    - mkdocs build -f SPOT_ROS2/documentation/mkdocs.yml
+    - mv SPOT_ROS2/documentation/site public

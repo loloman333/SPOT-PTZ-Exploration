@@ -1,0 +1,5 @@
+onnxruntime-gpu==1.20.0
+torch==2.5.0+cu124
+torchaudio==2.5.0+cu124
+torchvision==0.20.0+cu124
+numpy==1.23.0

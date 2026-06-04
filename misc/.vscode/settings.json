@@ -1,0 +1,49 @@
+{
+    "ROS2.distro": "humble",
+    "python.autoComplete.extraPaths": [
+        "/home/appuser/ros2_ws/build/spot_toolkit",
+        "/home/appuser/ros2_ws/install/spot_toolkit/lib/python3.10/site-packages",
+        "/home/appuser/ros2_ws/build/simulation",
+        "/home/appuser/ros2_ws/install/simulation/lib/python3.10/site-packages",
+        "/home/appuser/ros2_ws/build/our_launchers",
+        "/home/appuser/ros2_ws/install/our_launchers/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/appuser/ros2_ws/build/spot_toolkit",
+        "/home/appuser/ros2_ws/install/spot_toolkit/lib/python3.10/site-packages",
+        "/home/appuser/ros2_ws/build/simulation",
+        "/home/appuser/ros2_ws/install/simulation/lib/python3.10/site-packages",
+        "/home/appuser/ros2_ws/build/our_launchers",
+        "/home/appuser/ros2_ws/install/our_launchers/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "workbench.colorCustomizations": {
+        "window.activeBorder": "#ffe204",
+        "window.inactiveBorder": "#ffe204",
+        "activityBar.activeBorder": "#ffe204",
+        "focusBorder": "#ffe204",
+        "editorCursor.foreground": "#ffe204",
+        "editorGroup.border": "#ffe204",
+        "panel.border": "#ffe204",
+        "sideBar.border": "#ffe204",
+        "statusBar.border": "#ffe204",
+        "tab.activeBorder": "#ffe204",
+        "tab.activeModifiedBorder": "#ffe204",
+        "editorLineNumber.activeForeground": "#ffe204",
+        "editorRuler.foreground": "#ffe204",
+        "peekView.border": "#ffe204",
+        "dropdown.border": "#ffe204",
+        "input.border": "#ffe204",
+        "menu.border": "#ffe204",
+        "statusBar.background": "#ffe204",
+        "statusBar.foreground": "#000000",
+        "statusBar.noFolderBackground": "#ffe204",
+        "statusBar.noFolderForeground": "#000000",
+        "statusBar.debuggingBackground": "#ffe204",
+        "statusBar.debuggingForeground": "#000000"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
+}

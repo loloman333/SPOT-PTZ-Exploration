@@ -1,0 +1,4 @@
+my_packages_folder="./../../../my_packages"
+data_folder="./../../../data"
+vscode_folder="./../../.vscode"
+COLCON_BUILD_TYPE=Debug

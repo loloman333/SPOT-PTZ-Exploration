@@ -1,0 +1,37 @@
+site_name: SPOT ROS2 Documentation
+theme:
+  name: material
+
+docs_dir: docs
+
+markdown_extensions:
+  - admonition
+  - codehilite
+  - toc:
+      permalink: true
+  - footnotes
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.emoji
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.magiclink
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - ROS2 Basics: ros_basics.md
+  - Boston Dynamics' Wrappers: wrappers.md
+  - Actions and Services: actions_and_services.md
+  - TF and navigation: tf_and_navigation.md
+  - List of a few action: action_list.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/gitlab
+      link: https://git.sztaki.hu/mplab/mplab/spot/spot_shared/SPOT_dev.git 

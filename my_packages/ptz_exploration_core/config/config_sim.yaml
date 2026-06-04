@@ -1,0 +1,256 @@
+# -----------------------------------------------------------------------------
+# Common parameters
+# -----------------------------------------------------------------------------
+/**: 
+  ros__parameters:
+    pkg_name: ptz_exploration_core
+    robot_name: robot
+
+    # Topic suffix patterns for the simulated robot naming convention.
+    camera_info_pattern: '/{camera}/raw/camera_info'
+    image_pattern: '/{camera}/raw/image'
+    depth_pattern: '/{camera}/depth/image'
+    points_pattern: '/{camera}/depth/image/points'
+
+    use_sim_time: true      
+
+# -----------------------------------------------------------------------------
+# Launch toggles
+# -----------------------------------------------------------------------------
+launch:
+  ros__parameters:
+
+    # Enable or disable major subsystems for simulation runs.
+    launch_octomap: true
+    launch_detector: true
+    launch_gazer: true
+    launch_optimizer: true
+    launch_nav2: true
+    launch_collector: true
+    launch_explorer: false
+
+    # Nav2 bringup for sim defaults.
+    nav2_config: 'nav2_params_sim.yaml'
+    nav2_namespace: ''
+
+# -----------------------------------------------------------------------------
+# Detector
+# -----------------------------------------------------------------------------
+detector: 
+  ros__parameters:
+
+    # YOLO model and inference device.
+    yolo_model: yolo26n.pt
+    yolo_device: cuda:0
+    confidence_threshold: 0.25
+    # Classes to keep from the detector output.
+    target_classes:
+      # - person
+      # - bicycle
+      # - toilet
+      - suitcase
+    detection_frequency: 0.0  # per camera Hz (inferences per second) 0: no throttling
+
+    # Simulated camera stream(s) to process.
+    cameras:
+      - ptz_cam
+
+    output_pattern: '/{camera}/detection'
+    publish_annotated_image: true
+
+# -----------------------------------------------------------------------------
+# Gazer / PTZ control
+# -----------------------------------------------------------------------------
+gazer:
+  ros__parameters:
+    # PTZ source camera in simulation.
+    camera: ptz_cam
+
+    # Frame conventions used by the PTZ control node.
+    ptz_origin_frame: ptz_cam_origin_link
+    gaze_frame: map
+    world_frame: map
+    base_frame: base_link
+
+    # Core command and feedback topics.
+    ptz_cmd_topic: /ptz_cmd
+    ptz_state_topic: /ptz_state
+    ptz_settled_topic: /ptz_settled
+    target_point_topic: /clicked_point
+    octomap_topic: /octomap_binary
+    landmarks_topic: /landmarks
+    detections_topic: /detections
+
+    octomap_min_translation_m: 0.1
+    octomap_min_rotation_rad: 0.09
+    octomap_update_interval: 1.0
+    landmark_dismiss_radius_m: 1.2
+    scan_num_stops: 8
+    scan_dwell_time_s: 0.8
+    scan_home_tolerance_rad: 0.05
+    scan_home_tolerance_zoom: 0.05
+    scan_zoom: 1.5
+    confirm_threshold: 0.85
+    turning_direction: 1
+    home_pan_offset_rad: 0.0
+    home_tilt_offset_rad: 0.0
+    home_zoom_offset: 0.0
+
+# -----------------------------------------------------------------------------
+# Point cloud aggregation
+# -----------------------------------------------------------------------------
+cloud_in:
+  ros__parameters:
+    # Downsampling factor for simulated point clouds.
+    downsample_factor: 1
+    cameras:
+      - front_cam_360
+      - rear_cam_360
+      - left_cam_360
+      - right_cam_360
+
+# -----------------------------------------------------------------------------
+# Detection projection
+# -----------------------------------------------------------------------------
+projector:
+  ros__parameters:
+    # Only the PTZ camera participates in detection projection for sim.
+    cameras:
+      - ptz_cam
+
+    world_frame: map
+    base_frame: base_footprint
+
+    detections_topic: /detections
+    octomap_topic: /octomap_binary
+    detection_measurements_topic: /detection_measurements
+    detection_debug_markers_topic: /detection_debug_markers
+
+    max_ray_distance: 100.0
+    bbox_center_confidence_multiplier: 1.8 # TODO: tune
+    min_bearing_sigma_rad: 0.025
+    min_range_sigma_m: 0.025
+    range_sigma_multiplier: 0.25
+
+    octomap_min_translation_m: 0.1
+    octomap_min_rotation_rad: 0.09
+    octomap_update_interval: 1.0
+
+# -----------------------------------------------------------------------------
+# Landmark optimizer
+# -----------------------------------------------------------------------------
+optimizer:
+  ros__parameters:
+
+    world_frame: map
+    landmarks_topic: /landmarks
+
+    # Camera model source for FoV gating in data association
+    cameras:
+      - ptz_cam
+
+    # Triangulation
+    triangulation_min_pose_baseline_m: 0.01
+    triangulation_min_parallax_threshold: 0.0025
+    triangulation_max_ray_distance_m: 0.2
+    triangulation_min_depth_m: 1.0
+
+    # Data association
+    data_association_alpha: 0.95 # 0.9
+    candidate_confirmation_threshold: 5
+
+    # Message filtering
+    similar_pose_translation_threshold_m: 0.1
+    similar_pose_rotation_threshold_rad: 0.05
+    similar_time_threshold: 0.5
+
+    # Graph / solver
+    pose_prior_pos_sigma_m: 0.01
+    pose_prior_rot_sigma_rad: 0.001
+    isam_relinearize_threshold: 0.1
+    isam_relinearize_skip: 1
+    export_factor_graph: true
+    factor_graph_export_path: ~/ros2_ws/data/factor_graph/current_run.json
+
+# -----------------------------------------------------------------------------
+# Exploration / navigation
+# -----------------------------------------------------------------------------
+explorer:
+  ros__parameters:
+    # Frames used by frontier exploration.
+    base_frame_id: base_link
+    map_frame_id: map
+
+    explore_period_s: 1.0
+    blacklist_radius_m: 1.0
+    min_goal_distance_from_robot_m: 0.5
+    occupied_threshold: 50
+
+    min_frontier_size_cells: 20
+    weight_cells: 0.2
+    weight_distance: 1.0
+    distance_type: euclidean # options: euclidean, path_length
+
+    projected_map_topic: /projected_map
+    frontier_map_topic: /frontier_map
+    frontier_markers_topic: /frontier_markers # TODO: remove ?
+    blacklisted_markers_topic: /blacklisted_goal_markers # TODO: remove ?
+    scan_service_name: /scan_environment
+    confirm_service_name: /confirm_landmarks
+
+    confirm_landmarks: false
+    scan_method: none # options: ptz_service, body_rotation, none
+    scan_num_stops: 6
+    scan_dwell_time_s: 0.8
+    body_scan_cmd_vel_topic: /cmd_vel
+
+# -----------------------------------------------------------------------------
+# Run data collector
+# -----------------------------------------------------------------------------
+collector:
+  ros__parameters:
+    # Simulation metadata used for saved runs.
+    robot_name: robot
+    base_frame_id: base_link
+    reference_frame_id: map
+    sim_world_name: depot
+    distance_update_hz: 5.0
+    landmarks_topic: /landmarks
+    projected_map_topic: /projected_map
+    output_dir: ~/ros2_ws/data/collector_runs
+    target_objects: 6
+
+# -----------------------------------------------------------------------------
+# OctoMap server
+# -----------------------------------------------------------------------------
+octomap_server:
+  ros__parameters:
+
+    latch: true
+    colored_map: false
+    height_map: false
+
+    base_frame_id: base_footprint
+    frame_id: map
+
+    filter_ground_plane: true
+    ground_filter:
+      angle: 0.1 # 0.15
+      distance: 0.2
+      plane_distance: 0.2
+
+    occupancy_max_z: 4.0
+    occupancy_min_z: -2.0
+    point_cloud_max_z: 10.0
+    point_cloud_min_z: -10.0
+    resolution: 0.1 # 0.05
+
+    sensor_model:
+      hit: 0.7
+      max: 0.9
+      max_range: 10.0 # -1
+      min: 0.12
+      miss: 0.45
+    
+    
+    

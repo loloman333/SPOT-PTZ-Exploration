@@ -1,0 +1,60 @@
+<?xml version="1.0" ?>
+<sdf version="1.6" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:arg name="objects_file" default=""/>
+    <xacro:property name="objects_file_path" value="$(arg objects_file)"/>
+    <xacro:property name="objects_data" value="${xacro.load_yaml(objects_file_path) if objects_file_path else dict()}"/>
+    <xacro:property name="objects" value="${objects_data.get('objects', [])}"/>
+
+    <xacro:macro name="spawn_objects" params="object_list">
+        <xacro:if value="${len(object_list) > 0}">
+            <xacro:property name="obj" value="${object_list[0]}"/>
+            <xacro:property name="pose" value="${obj.get('pose', dict())}"/>
+            <include>
+                <name>${obj.get('name', '')}</name>
+                <uri>${obj.get('uri', '')}</uri>
+                <pose>
+                    ${pose.get('x', 0.0)}
+                    ${pose.get('y', 0.0)}
+                    ${pose.get('z', 0.0)}
+                    ${pose.get('roll', 0.0)}
+                    ${pose.get('pitch', 0.0)}
+                    ${pose.get('yaw', 0.0)}
+                </pose>
+            </include>
+            <xacro:spawn_objects object_list="${object_list[1:]}"/>
+        </xacro:if>
+    </xacro:macro>
+
+    <world name="depot">
+
+        <physics name="1ms" type="ignored">
+            <max_step_size>0.004</max_step_size>
+            <real_time_factor>1.0</real_time_factor>src/my_packages/ptz_exploration_core
+        </physics>
+
+        <plugin filename="libignition-gazebo-physics-system.so" name="ignition::gazebo::systems::Physics">
+        </plugin>
+        <plugin filename="libignition-gazebo-user-commands-system.so" name="ignition::gazebo::systems::UserCommands">
+        </plugin>
+        <plugin filename="libignition-gazebo-scene-broadcaster-system.so" name="ignition::gazebo::systems::SceneBroadcaster">
+        </plugin>
+        <plugin filename="libignition-gazebo-sensors-system.so" name="ignition::gazebo::systems::Sensors">
+            <render_engine>ogre2</render_engine>
+        </plugin>
+<!-- 
+        <plugin filename="libignition-gazebo-pose-publisher-system.so" name="ignition::gazebo::systems::PosePublisher">
+            <publish_link_pose>true</publish_link_pose>
+            <publish_nested_model_pose>true</publish_nested_model_pose>
+            <use_pose_vector_msg>true</use_pose_vector_msg>
+            <update_frequency>30</update_frequency>
+        </plugin> -->
+
+        <include>
+            <uri>
+                https://fuel.gazebosim.org/1.0/OpenRobotics/models/depot
+            </uri>
+        </include>
+
+        <xacro:spawn_objects object_list="${objects}"/>
+    </world>
+</sdf>
